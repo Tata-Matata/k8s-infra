@@ -1,0 +1,64 @@
+# After initial installation all the traffic is allowed
+# We roll out nginx and test connection to it from another pod as well as connection to the public internet
+- name: Deploy apps for testing Calico
+  hosts: k8s-playground
+  vars:
+    wget_timeout_seconds: 5
+  tasks:
+
+  - name: Delete temporary namespace with all resources in case already exists
+    ansible.builtin.command:
+      cmd: "kubectl  delete --force namespace {{ calico_ns }}"
+    failed_when: false
+
+  - name: Create temporary namespace
+    ansible.builtin.command:
+      cmd: "kubectl create namespace {{ calico_ns }}"
+
+  - name: Deploy nginx
+    ansible.builtin.command:
+      cmd: "kubectl create deployment --namespace={{ calico_ns }} nginx --image=nginx"
+  
+  - name: Expose nginx as a service
+    ansible.builtin.command: "kubectl expose --namespace={{ calico_ns }} deployment nginx --port=80"
+  
+  ## CHECK Nginx reachable
+  - name: Pod busybox
+    ansible.builtin.command: "kubectl run --namespace={{ calico_ns }} access --image busybox -- sleep 60000"
+  
+  - name: Wait for busybox pod to be Running
+    ansible.builtin.command:
+      cmd: >-
+        kubectl get pod access --namespace={{ calico_ns }} -o jsonpath={.status.phase}
+    register: busybox_state
+    changed_when: false
+    retries: 30
+    delay: 10
+    until: 
+    - busybox_state.rc == 0
+    - busybox_state.stdout | trim == "Running"
+  
+  - name: Query nginx from busybox
+    ansible.builtin.include_tasks: check-wget-success.yaml
+    vars:
+      wget_command: >-
+        kubectl exec --namespace={{ calico_ns }} access --
+        wget --timeout={{ wget_timeout_seconds }} --tries=1 -qO- http://nginx
+      expected_success_text: Welcome to nginx
+      success_fail_msg: Nginx not reached
+  
+
+  ## CHECK public internet reachable
+  - name: Test public internet
+    ansible.builtin.include_tasks: check-wget-success.yaml
+    vars:
+      wget_command: >-
+        kubectl exec --namespace={{ calico_ns }} access --
+        wget --timeout={{ wget_timeout_seconds }} --tries=1 -qO-
+        https://docs.tigera.io/pod-connection-test.txt
+      expected_success_text: successfully connected
+      success_fail_msg: Public internet not reached
+
+  
+    
+

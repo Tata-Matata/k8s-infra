@@ -1,0 +1,16 @@
+- name: Run connectivity check expected to succeed
+  ansible.builtin.command: "{{ wget_command }}"
+  register: wget_response
+  changed_when: false
+
+- name: Log successful connectivity response
+  ansible.builtin.debug:
+    msg: "{{ wget_response.stdout }}"
+  changed_when: false
+
+- name: Assert connectivity succeeded
+  ansible.builtin.assert:
+    that:
+      - expected_success_text in wget_response.stdout
+    fail_msg: "{{ success_fail_msg }}"
+  changed_when: false

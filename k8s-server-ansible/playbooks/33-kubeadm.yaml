@@ -1,0 +1,36 @@
+- name: Install kubeadm
+  hosts: k8s-playground
+    
+  tasks:
+  # Update apt package index 
+  - name: Update apt package index
+    ansible.builtin.apt:
+      update_cache: true
+
+  - name: Install kubeadm
+    ansible.builtin.apt:
+      name:
+      - kubeadm
+      state: present
+
+  - name: apt-mark hold kubeadm
+    ansible.builtin.dpkg_selections:
+      name: kubeadm
+      selection: hold
+  
+  ## POST verification
+  
+  - name: Verify kubeadm is installed
+    ansible.builtin.command: kubeadm version
+    register: kubeadm_check
+    changed_when: false
+
+  - name: Show kubeadm version
+    ansible.builtin.debug:
+      msg: "{{ kubeadm_check.stdout }}"
+  
+  - name: Verify kubeadm version
+    ansible.builtin.assert:
+      that: 
+        - k8s_version in kubeadm_check.stdout
+      fail_msg:  "kubeadm is not the expected version"

@@ -1,0 +1,68 @@
+## kubeconfig for admin is copied to local laptop
+## so that later we can run kubectl remotely
+- name: Control cluster from outside
+  hosts: k8s-playground
+  vars:
+    local_home_dir: "/home/tati/"
+    adminconf_controlplane_path: "{{ kubeconfig_path }}"
+    adminconf_local_machine_folder: "{{  local_home_dir }}/kubernetes/hetzner-playground"
+    adminconf_local_machine_path: "{{ adminconf_local_machine_folder }}/admin.conf"
+    kubectl_download_url: "https://dl.k8s.io/v{{  k8s_full_version }}/bin/linux/amd64/kubectl"
+    kubectl_checksum: "sha256:629d3f410e09bf49b64ae7079f7f0bda1191efed311f7d37fdbab0ad5b0ec2b7"
+    kubectl_target_folder: "{{  local_home_dir }}/.local/bin"
+  tasks:
+  - name: Make sure folder for admin.conf exists on localhost
+    ansible.builtin.file:
+      path: "{{ adminconf_local_machine_folder }}"
+      mode: '0755'
+      state: directory
+      owner: tati
+      group: tati
+    delegate_to: localhost
+
+  - name: Fetch admin.conf to local machine
+    ansible.builtin.fetch: 
+     src: "{{  adminconf_controlplane_path }}"
+     dest: "{{  adminconf_local_machine_path }}"
+     flat: true
+  
+  - name: Ensure local bin directory exists
+    ansible.builtin.file:
+      path: "{{ kubectl_target_folder }}"
+      state: directory
+      mode: '0755'
+    delegate_to: localhost
+
+  ## this is a persistent change that will take effect in a future shell
+  - name: Ensure ~/.local/bin is on PATH in .bashrc persistently
+    ansible.builtin.lineinfile:
+      path: "{{ local_home_dir }}/.bashrc"
+      line: 'export PATH="{{ kubectl_target_folder }}:$PATH"'
+      create: true
+    delegate_to: localhost
+  
+  - name: Download kubectl to local machine
+    ansible.builtin.get_url:
+      url: "{{ kubectl_download_url }}"
+      dest: "{{ kubectl_target_folder }}/kubectl"
+      mode: '0755'
+      checksum: "{{ kubectl_checksum }}"
+      force: true
+    delegate_to: localhost
+
+
+  - name: Verify kubectl can manage cluster from local machine
+    ansible.builtin.command:
+      cmd: kubectl --kubeconfig {{  adminconf_local_machine_path }} get nodes
+    delegate_to: localhost
+    changed_when: false
+    ## for currently running shell
+    environment:
+      PATH: "{{ kubectl_target_folder }}:{{ lookup('env', 'PATH') }}"
+  
+  - name: Persist KUBECONFIG in local .bashrc
+    ansible.builtin.lineinfile:
+      path: "{{ local_home_dir }}/.bashrc"
+      line: 'export KUBECONFIG="{{ adminconf_local_machine_path }}"'
+      create: true
+    delegate_to: localhost

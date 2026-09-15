@@ -1,0 +1,2 @@
+1. certificates API: wrong signer, customer signing controller, wrong usage
+2. mess up kubelet client certificate to have the wrong CN (instead of system:node:node01) or wrong group (system:nodes), see how it auths to API server

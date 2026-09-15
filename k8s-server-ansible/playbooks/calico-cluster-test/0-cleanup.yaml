@@ -1,0 +1,30 @@
+# For idempotency make sure all the resources in the test namespace and global policies are removed
+
+- name: Delete resources in case exist
+  hosts: k8s-playground
+  vars:
+    calico_policies:
+    - calico-allow-egress
+    - calico-allow-ingress
+    - calico-default-deny-policy
+
+  tasks:
+
+  - name: Delete temporary namespace with all resources in case already exists
+    ansible.builtin.command:
+      cmd: "kubectl  delete --force namespace {{ calico_ns }}"
+    failed_when: false
+
+  - name: Delete Calico policies
+    ansible.builtin.command:
+      cmd: kubectl delete --force -f "{{ calico_tmp_folder }}/{{  item }}.yaml.j2"
+    failed_when: false
+    loop: "{{  calico_policies }}"
+
+  - name: Delete Calico policy files
+    ansible.builtin.file:
+      path: "{{ calico_tmp_folder }}/{{  item }}.yaml"
+      state: absent
+    failed_when: false
+    loop: "{{  calico_policies }}"
+  

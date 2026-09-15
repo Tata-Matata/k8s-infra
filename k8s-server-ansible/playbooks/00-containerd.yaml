@@ -1,0 +1,71 @@
+- name: Install containerd
+  hosts: k8s-playground
+  vars:
+    containerd_version: "2.1.8"
+    tmp_folder: /tmp/containterd
+    filename: "containerd-{{ containerd_version }}-linux-amd64.tar.gz"
+    full_archivepath: "{{ tmp_folder }}/{{ filename }}"
+    containerd_sha256: "sha256:ad2ed5bca4839109ec271e3ee0285abf36bec450956c5d59a31f1a980e8d71a9"
+    download_url: "https://github.com/containerd/containerd/releases/download/v{{ containerd_version }}/{{ filename }}"
+  tasks:
+  - name: Check installed containerd version
+    ansible.builtin.command: containerd --version
+    failed_when: false
+    register: containerd_installed_version
+  - name: Check if the installed version is the desired one
+    ansible.builtin.set_fact:
+      install_containerd: "{{ containerd_installed_version.rc != 0 or containerd_version not in containerd_installed_version.stdout}}"
+    # this task will never fail
+    failed_when: false 
+    changed_when: false
+  - name: Log already installed containerd version before installation
+    ansible.builtin.debug:
+      msg:
+        - "installed version response code={{ containerd_installed_version.rc }}"
+        - "installed version={{ containerd_installed_version.stdout }}"
+        - "install_containerd={{ install_containerd }}"
+  
+  #### INSTALL
+  - name: Install containerd
+    when: install_containerd
+    block:
+    - name: Ensure tmp folder for download exists
+      ansible.builtin.file:
+          path: "{{ tmp_folder }}"
+          state: directory
+          mode: '0700'
+          owner: root
+          group: root
+    - name: Download containerd archive
+      ansible.builtin.get_url:
+        url: "{{ download_url }}"
+        dest: "{{ full_archivepath }}"
+        mode: '0644'
+        checksum: "{{ containerd_sha256 }}"
+    - name: Unpack
+      ansible.builtin.unarchive:
+        src: "{{ full_archivepath }}"
+        dest: /usr/local
+        # unarchive needs this, otherwise it assumes the archive is on the controller machine and copies it to the dest
+        remote_src: true 
+
+    - name: Verify containerd after installation
+      ansible.builtin.command: containerd --version
+      register: containerd_installed
+      changed_when: false
+    
+    - name: Log containerd version after installation
+      ansible.builtin.debug:
+        msg:
+        - "installed version response code={{ containerd_installed.rc }}"
+        - "installed version={{ containerd_installed.stdout }}"
+
+
+      ###  POST-INSTALL Cleanup
+    - name: Remove tmp folder
+      ansible.builtin.file:
+        path: "{{ tmp_folder }}"
+        state: absent
+
+
+    

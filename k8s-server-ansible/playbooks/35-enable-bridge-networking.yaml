@@ -1,0 +1,45 @@
+- name: Configure br_netfilter and sysctl bridge
+  hosts: k8s-playground
+    
+  tasks:
+  
+
+  ## setting sysctls like net.bridge.bridge-nf-call-iptables only works if the bridge netfilter functionality is available
+  ## loading br_netfilter ensures those bridge-related sysctls exist and bridged traffic can hit netfilter/iptables hooks
+  ## so that K8s internal pod traffic on private bridges is visible to iptables, i.e.
+  ## that bridged IPv4/IPv6 packets go through iptables.
+  ## If bridged traffic bypassed iptables, 
+  ## k8s could not enforce network policies or routing rules for pod-to-pod communication.
+  
+  - name: Persistent module loading for br_netfilter
+    ansible.builtin.lineinfile:
+      path: /etc/modules-load.d/k8s.conf
+      line: br_netfilter
+      ## if the file does not exist, create:true makes it
+      create: true 
+      mode: '0644'
+      owner: root
+      group: root
+  
+  - name: Load br_netfilter now
+    ansible.builtin.command: modprobe br_netfilter
+  
+  - name: Persist sysctls 
+    ansible.builtin.sysctl:
+      name: "{{  item }}"
+      value: "1"
+      state: present
+      sysctl_set: true
+      reload: true
+    loop:
+    # IPv4 forwarding
+    - net.ipv4.ip_forward
+    # bridged IPv4 traffic through iptables
+    - net.bridge.bridge-nf-call-iptables
+    # bridged IPv6 traffic through ip6tables
+    - net.bridge.bridge-nf-call-ip6tables
+    
+    
+  
+  - name: Apply sysctls now 
+    ansible.builtin.command: "sysctl --system"

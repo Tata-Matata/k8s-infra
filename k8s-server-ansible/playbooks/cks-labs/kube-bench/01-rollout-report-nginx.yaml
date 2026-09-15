@@ -1,0 +1,31 @@
+- name: Roll out nginx for kube-bench report publishing
+  hosts: k8s-playground
+  become: true
+
+  vars_files:
+  - kube-bench-vars.yaml
+
+  tasks:
+  - name: Write nginx manifest for Kubernetes report publishing
+    ansible.builtin.template:
+      src: kube-bench-report-nginx.yaml.j2
+      dest: "{{ kubebench_manifest_path }}"
+      owner: root
+      group: root
+      mode: "0644"
+
+  - name: Apply nginx manifest to the cluster
+    ansible.builtin.command:
+      cmd: kubectl apply -f {{ kubebench_manifest_path }}
+    register: kubebench_nginx_apply
+    changed_when: >-
+      'created' in kubebench_nginx_apply.stdout or
+      'configured' in kubebench_nginx_apply.stdout or
+      'unchanged' not in kubebench_nginx_apply.stdout
+
+  - name: Wait for nginx deployment rollout
+    ansible.builtin.command:
+      cmd: kubectl rollout status deployment/{{ kubebench_nginx_name }} -n {{ kubebench_namespace }} --timeout=120s
+    environment:
+      KUBECONFIG: "{{ kubeconfig_path }}"
+    changed_when: false

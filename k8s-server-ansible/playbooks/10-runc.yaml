@@ -1,0 +1,67 @@
+- name: Install runc
+  hosts: k8s-playground
+  vars:
+    runc_version: "1.4.2"
+    tmp_folder: /tmp/runc
+    filename: "runc.amd64"
+    full_installer_path: "{{ tmp_folder }}/{{ filename }}"
+    runc_sha256: "sha256:ac8a90f9e225bb9322189937b230cdc5478d5753f0e31e1bda98a5cf06bd9539"
+    download_url: "https://github.com/opencontainers/runc/releases/download/v{{runc_version}}/runc.amd64"
+  tasks:
+  - name: Check installed runc version
+    ansible.builtin.command: runc --version
+    failed_when: false
+    register: runc_installed_version
+  - name: Check if the installed version is the desired one
+    ansible.builtin.set_fact:
+      install_runc: "{{ runc_installed_version.rc != 0 or runc_installed_version not in runc_installed_version.stdout}}"
+    # this task will never fail
+    failed_when: false 
+    changed_when: false
+  - name: Log already installed runc version before installation
+    ansible.builtin.debug:
+      msg:
+        - "installed version response code={{ runc_installed_version.rc }}"
+        - "installed version={{ runc_installed_version.stdout }}"
+        - "install_runc={{ install_runc }}"
+  
+  #### INSTALL
+  - name: Install runc
+    when: install_runc
+    block:
+    - name: Ensure tmp folder for download exists
+      ansible.builtin.file:
+          path: "{{ tmp_folder }}"
+          state: directory
+          mode: '0700'
+          owner: root
+          group: root
+    - name: Download runc installer
+      ansible.builtin.get_url:
+        url: "{{ download_url }}"
+        dest: "{{ full_installer_path }}"
+        mode: '0644'
+        checksum: "{{ runc_sha256 }}"
+    - name: Install
+      ansible.builtin.command: "install -m 755 {{ full_installer_path }} /usr/local/sbin/runc"
+        
+    - name: Verify runc after installation
+      ansible.builtin.command: runc --version
+      register: runc_installed
+      changed_when: false
+    
+    - name: Log containerd version after installation
+      ansible.builtin.debug:
+        msg:
+        - "installed version response code={{ runc_installed.rc }}"
+        - "installed version={{ runc_installed.stdout }}"
+
+
+      ###  POST-INSTALL Cleanup
+    - name: Remove tmp folder
+      ansible.builtin.file:
+        path: "{{ tmp_folder }}"
+        state: absent
+
+
+    

@@ -1,0 +1,57 @@
+- name: Init cluster with kubeadm
+  hosts: k8s-playground
+  vars:
+    admin_conf_path: /etc/kubernetes/admin.conf
+  ## necessary for ansible_facts['default_ipv4']['address']
+  gather_facts: true 
+  tasks:
+  
+  - name: Create config file for kubeadm from Jinja template
+    ansible.builtin.template:
+      src: kubeadm-init.yaml.j2 
+      dest: /root/kubeadm-init.yaml
+      owner: root
+      group: root
+      mode: '0600'
+
+  - name: Show detected IP
+    ansible.builtin.debug:
+      msg: "{{ ansible_facts['default_ipv4']['address'] }}"
+
+  ## if port 10250 is already bound, kubeadm throws error
+  - name: Stop kubelet service
+    ansible.builtin.systemd_service:
+      name: kubelet
+      enabled: true
+      state: stopped
+  - name: Init cluster with kubeadm
+    ansible.builtin.command:
+      cmd: kubeadm init --config /root/kubeadm-init.yaml
+    args:
+      creates: "{{ admin_conf_path }}"
+  
+
+  ## For kubectl to find the right kubeconfig, we need to either set KUBECONFIG env var
+  ## or copy /etc/kubernetes/admin.conf to /root/.kube/config (since we are running under user root)
+  - name: Ensure root kubeconfig directory exists
+    ansible.builtin.file:
+      path: /root/.kube
+      state: directory
+      owner: root
+      group: root
+      mode: '0700'
+  
+  - name: Copy admin kubeconfig for root 
+    ansible.builtin.copy: 
+      src: "{{  admin_conf_path }}"
+      dest: /root/.kube/config
+      remote_src: true
+      owner: root
+      group: root
+      mode: '0600'
+
+
+  ## POST CHECK
+  - name: Check kubectl
+    ansible.builtin.command: kubectl get nodes
+    changed_when: false

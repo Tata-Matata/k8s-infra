@@ -1,0 +1,3 @@
+all:
+  hosts:
+    k8s-playground:

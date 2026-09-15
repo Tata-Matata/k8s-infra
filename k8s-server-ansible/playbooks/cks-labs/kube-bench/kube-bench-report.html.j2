@@ -1,0 +1,467 @@
+{% set lines = kubebench_run.stdout_lines | default([]) %}
+{% set parsed = namespace(
+  current_section='',
+  current_subsection='',
+  in_remediations=false,
+  current_remediation_id='',
+  current_remediation_lines=[],
+  remediations={},
+  checks=[],
+  pass_count=0,
+  fail_count=0,
+  warn_count=0
+) %}
+{% for raw_line in lines %}
+  {% set line = raw_line | trim %}
+  {% if not line %}
+    {% if parsed.in_remediations and parsed.current_remediation_id %}
+      {% set parsed.current_remediation_lines = parsed.current_remediation_lines + [''] %}
+    {% endif %}
+  {% elif line.startswith('== Remediations ') %}
+    {% if parsed.current_remediation_id %}
+      {% set parsed.remediations = parsed.remediations | combine({
+        parsed.current_remediation_id: (parsed.current_remediation_lines | join('\n') | trim)
+      }) %}
+    {% endif %}
+    {% set parsed.in_remediations = true %}
+    {% set parsed.current_remediation_id = '' %}
+    {% set parsed.current_remediation_lines = [] %}
+  {% elif line.startswith('== Summary ') %}
+    {% if parsed.in_remediations and parsed.current_remediation_id %}
+      {% set parsed.remediations = parsed.remediations | combine({
+        parsed.current_remediation_id: (parsed.current_remediation_lines | join('\n') | trim)
+      }) %}
+    {% endif %}
+    {% set parsed.in_remediations = false %}
+    {% set parsed.current_remediation_id = '' %}
+    {% set parsed.current_remediation_lines = [] %}
+  {% elif parsed.in_remediations %}
+    {% set remediation_parts = line.split(' ', 1) %}
+    {% set remediation_head = remediation_parts[0] %}
+    {% if remediation_head | regex_search('^\d+(?:\.\d+)+$') and remediation_parts | length > 1 %}
+      {% if parsed.current_remediation_id %}
+        {% set parsed.remediations = parsed.remediations | combine({
+          parsed.current_remediation_id: (parsed.current_remediation_lines | join('\n') | trim)
+        }) %}
+      {% endif %}
+      {% set parsed.current_remediation_id = remediation_head %}
+      {% set parsed.current_remediation_lines = [remediation_parts[1]] %}
+    {% elif parsed.current_remediation_id %}
+      {% set parsed.current_remediation_lines = parsed.current_remediation_lines + [raw_line] %}
+    {% endif %}
+  {% elif line.startswith('[INFO] ') %}
+    {% set info_body = line[7:] %}
+    {% set info_parts = info_body.split(' ', 1) %}
+    {% if info_parts | length > 1 %}
+      {% set info_id = info_parts[0] %}
+      {% if info_id | regex_search('^\d+$') %}
+        {% set parsed.current_section = info_body %}
+        {% set parsed.current_subsection = '' %}
+      {% elif info_id | regex_search('^\d+\.\d+$') %}
+        {% set parsed.current_subsection = info_body %}
+      {% endif %}
+    {% endif %}
+  {% elif line.startswith('[PASS] ') or line.startswith('[FAIL] ') or line.startswith('[WARN] ') %}
+    {% set status_end = line.find(']') %}
+    {% set status = line[1:status_end] %}
+    {% set check_body = line[status_end + 2:] %}
+    {% set check_parts = check_body.split(' ', 1) %}
+    {% if check_parts | length > 1 %}
+      {% set check_id = check_parts[0] %}
+      {% set check_text = check_parts[1] %}
+      {% set parsed.checks = parsed.checks + [{
+        'section': parsed.current_section,
+        'subsection': parsed.current_subsection,
+        'status': status,
+        'id': check_id,
+        'text': check_text
+      }] %}
+      {% if status == 'PASS' %}
+        {% set parsed.pass_count = parsed.pass_count + 1 %}
+      {% elif status == 'FAIL' %}
+        {% set parsed.fail_count = parsed.fail_count + 1 %}
+      {% elif status == 'WARN' %}
+        {% set parsed.warn_count = parsed.warn_count + 1 %}
+      {% endif %}
+    {% endif %}
+  {% endif %}
+{% endfor %}
+{% if parsed.in_remediations and parsed.current_remediation_id %}
+  {% set parsed.remediations = parsed.remediations | combine({
+    parsed.current_remediation_id: (parsed.current_remediation_lines | join('\n') | trim)
+  }) %}
+{% endif %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>kube-bench report</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      --page-bg: linear-gradient(180deg, #f3efe7 0%, #fbfaf7 42%, #f4f7fb 100%);
+      --panel-bg: rgba(255, 255, 255, 0.92);
+      --panel-border: rgba(88, 98, 122, 0.14);
+      --text-main: #1c2430;
+      --text-muted: #5f6c82;
+      --pass: #237a57;
+      --fail: #c0392b;
+      --warn: #c58100;
+      --shadow: 0 20px 50px rgba(31, 46, 77, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 2rem;
+      background: var(--page-bg);
+      color: var(--text-main);
+    }
+
+    main {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .hero {
+      margin-bottom: 2rem;
+      padding: 2rem;
+      border: 1px solid var(--panel-border);
+      border-radius: 1.5rem;
+      background: var(--panel-bg);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 3vw, 3.4rem);
+      line-height: 1;
+      letter-spacing: -0.04em;
+    }
+
+    .subtitle {
+      max-width: 60rem;
+      margin: 0.9rem 0 0;
+      color: var(--text-muted);
+      font-size: 1rem;
+      line-height: 1.6;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .stat-card {
+      padding: 1rem 1.1rem;
+      border: 1px solid var(--panel-border);
+      border-radius: 1rem;
+      background: rgba(255, 255, 255, 0.8);
+    }
+
+    .stat-label {
+      display: block;
+      margin-bottom: 0.35rem;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .stat-value.pass {
+      color: var(--pass);
+    }
+
+    .stat-value.fail {
+      color: var(--fail);
+    }
+
+    .stat-value.warn {
+      color: var(--warn);
+    }
+
+    .report-section {
+      margin-top: 2rem;
+      border: 1px solid var(--panel-border);
+      border-radius: 1.5rem;
+      overflow: hidden;
+      background: var(--panel-bg);
+      box-shadow: var(--shadow);
+    }
+
+    .section-header {
+      padding: 1.3rem 1.5rem;
+      border-bottom: 1px solid var(--panel-border);
+      background: linear-gradient(135deg, rgba(31, 94, 255, 0.1), rgba(31, 94, 255, 0.02));
+    }
+
+    .section-title {
+      margin: 0;
+      font-size: 1.35rem;
+      letter-spacing: -0.02em;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      padding: 0.95rem 1rem;
+      text-align: left;
+      background: #eef3fb;
+      color: #364152;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    tbody td {
+      padding: 1rem;
+      vertical-align: top;
+      border-top: 1px solid rgba(88, 98, 122, 0.12);
+    }
+
+    .subsection-row th {
+      padding: 1rem;
+      text-align: left;
+      font-size: 1rem;
+      background: rgba(31, 94, 255, 0.06);
+      color: #1f355b;
+      border-top: 1px solid rgba(88, 98, 122, 0.12);
+    }
+
+    .finding-cell {
+      min-width: 520px;
+    }
+
+    .remediation-cell {
+      min-width: 420px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 5.5rem;
+      padding: 0.45rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .status-pass {
+      background: rgba(35, 122, 87, 0.12);
+      color: var(--pass);
+    }
+
+    .status-fail {
+      background: rgba(192, 57, 43, 0.12);
+      color: var(--fail);
+    }
+
+    .status-warn {
+      background: rgba(197, 129, 0, 0.14);
+      color: var(--warn);
+    }
+
+    .check-id {
+      margin: 0.75rem 0 0.35rem;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+
+    .finding-text {
+      line-height: 1.55;
+    }
+
+    .remediation-text {
+      white-space: pre-wrap;
+      line-height: 1.6;
+      color: #283548;
+    }
+
+    .muted {
+      color: var(--text-muted);
+    }
+
+    .row-fail {
+      background: rgba(192, 57, 43, 0.035);
+    }
+
+    .row-warn {
+      background: rgba(197, 129, 0, 0.04);
+    }
+
+    details {
+      margin-top: 2rem;
+      border: 1px solid var(--panel-border);
+      border-radius: 1rem;
+      background: rgba(255, 255, 255, 0.72);
+      overflow: hidden;
+    }
+
+    summary {
+      padding: 1rem 1.2rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    pre {
+      margin: 0;
+      padding: 1.2rem;
+      overflow-x: auto;
+      border-top: 1px solid var(--panel-border);
+      background: #0f1724;
+      color: #edf2ff;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 900px) {
+      body {
+        padding: 1rem;
+      }
+
+      .hero,
+      .section-header {
+        padding: 1.25rem;
+      }
+
+      tbody td,
+      thead th,
+      .subsection-row th {
+        padding: 0.85rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <h1>kube-bench report</h1>
+      <p class="subtitle">Structured findings from kube-bench with remediation guidance surfaced directly next to failing and warning checks so the report is easier to review and publish through nginx.</p>
+      <div class="meta-grid">
+        <article class="stat-card">
+          <span class="stat-label">Exit Code</span>
+          <span class="stat-value">{{ kubebench_run.rc }}</span>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">Pass</span>
+          <span class="stat-value pass">{{ parsed.pass_count }}</span>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">Fail</span>
+          <span class="stat-value fail">{{ parsed.fail_count }}</span>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">Warn</span>
+          <span class="stat-value warn">{{ parsed.warn_count }}</span>
+        </article>
+      </div>
+    </section>
+    {% if parsed.checks %}
+      {% set render = namespace(section='', subsection='', open=false) %}
+      {% for check in parsed.checks %}
+        {% if check.section != render.section %}
+          {% if render.open %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+          {% endif %}
+      <section class="report-section">
+        <header class="section-header">
+          <h2 class="section-title">{{ check.section | e }}</h2>
+        </header>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Check</th>
+                <th>Remediation</th>
+              </tr>
+            </thead>
+            <tbody>
+          {% set render.section = check.section %}
+          {% set render.subsection = '' %}
+          {% set render.open = true %}
+        {% endif %}
+        {% if check.subsection and check.subsection != render.subsection %}
+              <tr class="subsection-row">
+                <th colspan="2">{{ check.subsection | e }}</th>
+              </tr>
+          {% set render.subsection = check.subsection %}
+        {% endif %}
+              {% set remediation = parsed.remediations[check.id] if check.id in parsed.remediations else '' %}
+              <tr class="row-{{ check.status | lower }}">
+                <td class="finding-cell">
+                  <span class="status-badge status-{{ check.status | lower }}">{{ check.status }}</span>
+                  <div class="check-id">{{ check.id }}</div>
+                  <div class="finding-text">{{ check.text | e }}</div>
+                </td>
+                <td class="remediation-cell">
+                  {% if check.status != 'PASS' and remediation %}
+                    <div class="remediation-text">{{ remediation | e }}</div>
+                  {% elif check.status == 'PASS' %}
+                    <span class="muted">-</span>
+                  {% else %}
+                    <span class="muted">No remediation block found in this kube-bench output.</span>
+                  {% endif %}
+                </td>
+              </tr>
+      {% endfor %}
+      {% if render.open %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      {% endif %}
+    {% else %}
+      <section class="report-section">
+        <header class="section-header">
+          <h2 class="section-title">No structured findings parsed</h2>
+        </header>
+        <div class="table-wrap">
+          <table>
+            <tbody>
+              <tr>
+                <td class="finding-cell">The report format did not match the expected kube-bench output structure.</td>
+                <td class="remediation-cell muted">Check the raw output below.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    {% endif %}
+    <details>
+      <summary>Raw kube-bench output</summary>
+      <pre>{{ kubebench_run.stdout | default('') | e }}</pre>
+    </details>
+  </main>
+</body>
+</html>

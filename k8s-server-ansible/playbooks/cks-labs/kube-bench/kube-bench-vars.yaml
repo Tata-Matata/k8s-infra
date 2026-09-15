@@ -1,0 +1,12 @@
+kubebench_reports_dir: /srv/kube-bench
+kubebench_report_file: kube-bench-report.txt
+kubebench_report_html_file: index.html
+kubebench_report_path: "{{ kubebench_reports_dir }}/{{ kubebench_report_file }}"
+kubebench_report_html_path: "{{ kubebench_reports_dir }}/{{ kubebench_report_html_file }}"
+kubebench_report_template: kube-bench-report.html.j2
+kubebench_namespace: kube-bench-report
+kubebench_nginx_name: kube-bench-report-nginx
+kubebench_nginx_image: nginx:1.27-alpine
+kubebench_manifest_path: /tmp/kube-bench-report-nginx.yaml
+kubebench_service_port: 80
+kubebench_local_port_forward_port: 8889

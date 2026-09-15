@@ -1,0 +1,50 @@
+- name: Prepare apt repository
+  hosts: k8s-playground
+    
+  tasks:
+  # Update apt package index 
+  - name: Update apt package index
+    ansible.builtin.apt:
+      update_cache: true
+
+  # install packages needed to use the Kubernetes apt repository:
+  - name: Install packages
+    ansible.builtin.apt:
+      name:
+      - curl
+      - ca-certificates
+      - apt-transport-https
+      - gpg
+      state: present
+
+  # Download the public signing key for the Kubernetes package repositories. 
+  - name: Ensure /etc/apt/keyrings folder exists
+    ansible.builtin.file:
+        path: "/etc/apt/keyrings"
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+  # The same signing key is used for all repositories so you can disregard the version in the URL:
+  - name: Download and add gpg signing key 
+    ansible.builtin.shell: "curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.36/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg"
+    args:
+      # if the file already exists, Ansible skips the command
+      creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  
+  # Add the appropriate Kubernetes apt repository. 
+  # This overwrites any existing configuration in /etc/apt/sources.list.d/kubernetes.list
+  # this repository has packages only for the specified Kubernetes version; 
+  # for other versions - change it in the url
+  - name: Add K8s apt repo 
+    ansible.builtin.copy:
+      dest: /etc/apt/sources.list.d/kubernetes.list
+      content: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ k8s_version }}/deb/ /\n"
+      mode: '0644'
+      owner: root
+      group: root
+
+   # Update apt package index 
+  - name: Update apt package index
+    ansible.builtin.apt:
+      update_cache: true

@@ -1,0 +1,57 @@
+## We deny all traffic initially
+## and later gradually allow only what's necessary
+
+- name: Implement global default deny policy
+  hosts: k8s-playground
+  vars:
+    policy_name: calico-default-deny-policy
+    policy_path: "{{ calico_tmp_folder }}/{{ policy_name }}.yaml"
+    wget_timeout_seconds: 5
+  tasks:
+
+
+  ## ADD POLICY   
+  - name: Ensure tmp dir exists
+    ansible.builtin.file:
+      path: "{{  calico_tmp_folder }}"
+      state: directory
+      mode: '0755'
+
+  - name: Render default deny policy manifest
+    ansible.builtin.template:
+      src: "{{ policy_name }}.yaml.j2"
+      dest: "{{  policy_path }}"
+      mode: '0644'
+
+  - name: Delete policy in case already exists
+    ansible.builtin.command:
+      cmd: kubectl delete --force -f "{{  policy_path }}"
+    failed_when: false
+  
+  - name: Apply default deny policy
+    ansible.builtin.command:
+      cmd: kubectl create -f "{{  policy_path }}"
+  
+  ## TEST nothing is reachable
+
+  ## Nginx from busybox
+  - name: Query nginx from busybox
+    ansible.builtin.include_tasks: check-wget-failure.yaml
+    vars:
+      wget_command: >-
+        kubectl exec --namespace={{ calico_ns }} access --
+        wget --timeout={{ wget_timeout_seconds }} --tries=1 -qO- http://nginx
+      failure_fail_msg: Nginx is still reachable
+  
+  ## Public internet from busybox
+  
+  - name: Test public internet
+    ansible.builtin.include_tasks: check-wget-failure.yaml
+    vars:
+      wget_command: >-
+        kubectl exec --namespace={{ calico_ns }} access --
+        wget --timeout={{ wget_timeout_seconds }} --tries=1 -qO-
+        https://docs.tigera.io/pod-connection-test.txt
+      failure_fail_msg: Public internet is still reachable
+
+

@@ -1,0 +1,190 @@
+- name: Generate Alice client certificate locally
+  hosts: localhost
+  connection: local
+  become: false
+
+  vars:
+    authentication_lab_home: "{{ lookup('env', 'HOME') }}"
+    authentication_lab_dir: "{{ authentication_lab_home }}/kubernetes/hetzner-playground/authentication/01-lab"
+    authentication_lab_private_key_path: "{{ authentication_lab_dir }}/alice.key"
+    authentication_lab_certificate_path: "{{ authentication_lab_dir }}/alice.crt"
+
+  tasks:
+  - name: Ensure authentication lab directory exists
+    ansible.builtin.file:
+      path: "{{ authentication_lab_dir }}"
+      state: directory
+      mode: "0700"
+
+  - name: Generate self-signed client certificate for Alice
+    ansible.builtin.command:
+      argv:
+      - openssl
+      - req
+      - -x509
+      - -nodes
+      - -newkey
+      - rsa:2048
+      - -keyout
+      - "{{ authentication_lab_private_key_path }}"
+      - -out
+      - "{{ authentication_lab_certificate_path }}"
+      - -subj
+      - /CN=Alice/O=Wonderland
+      - -days
+      - "365"
+    args:
+      creates: "{{ authentication_lab_certificate_path }}"
+
+  - name: Read generated Alice client certificate
+    ansible.builtin.slurp:
+      src: "{{ authentication_lab_certificate_path }}"
+    register: authentication_lab_certificate_raw
+
+  - name: Read generated Alice client key
+    ansible.builtin.slurp:
+      src: "{{ authentication_lab_private_key_path }}"
+    register: authentication_lab_private_key_raw
+
+  - name: Cache Alice client credentials for kubeconfig rendering
+    ansible.builtin.set_fact:
+      authentication_lab_certificate_data: "{{ authentication_lab_certificate_raw.content }}"
+      authentication_lab_private_key_data: "{{ authentication_lab_private_key_raw.content }}"
+
+- name: Discover cluster connection details on the Kubernetes host
+  hosts: k8s-playground
+  become: true
+  gather_facts: false
+
+  vars:
+    authentication_lab_kube_apiserver_manifest_path: /etc/kubernetes/manifests/kube-apiserver.yaml
+    authentication_lab_rbac_manifest_src: resources/01-rbac-alice-pods.yaml
+    authentication_lab_rbac_manifest_dest: /root/01-rbac-alice-pods.yaml
+
+  tasks:
+  - name: Read kube-apiserver static pod manifest
+    ansible.builtin.slurp:
+      src: "{{ authentication_lab_kube_apiserver_manifest_path }}"
+    register: authentication_lab_kube_apiserver_manifest_raw
+
+  - name: Parse kube-apiserver manifest
+    ansible.builtin.set_fact:
+      authentication_lab_kube_apiserver_manifest: >-
+        {{ authentication_lab_kube_apiserver_manifest_raw.content | b64decode | from_yaml }}
+
+  - name: Cache kube-apiserver command arguments
+    ansible.builtin.set_fact:
+      authentication_lab_kube_apiserver_command: >-
+        {{ authentication_lab_kube_apiserver_manifest.spec.containers[0].command }}
+
+  - name: Extract cluster host and CA certificate path from kube-apiserver manifest
+    ansible.builtin.set_fact:
+      authentication_lab_cluster_host: >-
+        {{ authentication_lab_kube_apiserver_command
+        | select('match', '^--advertise-address=')
+        | list
+        | first
+        | default('', true)
+        | regex_replace('^--advertise-address=', '') }}
+      authentication_lab_cluster_ca_cert_path: >-
+        {{ authentication_lab_kube_apiserver_command
+        | select('match', '^--client-ca-file=')
+        | list
+        | first
+        | default('', true)
+        | regex_replace('^--client-ca-file=', '') }}
+
+  - name: Assert cluster host discovery succeeded
+    ansible.builtin.assert:
+      that:
+      - authentication_lab_cluster_host | length > 0
+      - authentication_lab_cluster_ca_cert_path | length > 0
+      fail_msg: >-
+        Could not determine --advertise-address or --client-ca-file from
+        {{ authentication_lab_kube_apiserver_manifest_path }}.
+
+  - name: Read discovered cluster CA certificate
+    ansible.builtin.slurp:
+      src: "{{ authentication_lab_cluster_ca_cert_path }}"
+    register: authentication_lab_cluster_ca_raw
+
+  - name: Cache kubeconfig inputs discovered on the Kubernetes host
+    ansible.builtin.set_fact:
+      authentication_lab_cluster_name: kubernetes
+      authentication_lab_cluster_server: "https://{{ authentication_lab_cluster_host }}:6443"
+      authentication_lab_cluster_ca_data: "{{ authentication_lab_cluster_ca_raw.content }}"
+
+  - name: Copy Alice RBAC manifest to the Kubernetes host
+    ansible.builtin.copy:
+      src: "{{ authentication_lab_rbac_manifest_src }}"
+      dest: "{{ authentication_lab_rbac_manifest_dest }}"
+      owner: root
+      group: root
+      mode: "0644"
+
+  - name: Apply Alice RBAC manifest to the cluster
+    ansible.builtin.command:
+      cmd: kubectl apply -f {{ authentication_lab_rbac_manifest_dest }}
+    environment:
+      KUBECONFIG: "{{ kubeconfig_path }}"
+    register: authentication_lab_rbac_apply
+    changed_when: >-
+      'created' in authentication_lab_rbac_apply.stdout or
+      'configured' in authentication_lab_rbac_apply.stdout or
+      'unchanged' not in authentication_lab_rbac_apply.stdout
+
+- name: Prepare lab1 - troubleshoot client certificate authentication locally
+  hosts: localhost
+  connection: local
+  become: false
+
+  vars:
+    authentication_lab_source_host: k8s-playground
+    authentication_lab_home: "{{ lookup('env', 'HOME') }}"
+    authentication_lab_dir: "{{ authentication_lab_home }}/kubernetes/hetzner-playground/authentication/01-lab"
+    authentication_lab_kubeconfig_src: resources/01-kubeconfig-alice.conf
+    authentication_lab_kubeconfig_dest: "{{ authentication_lab_dir }}/01-kubeconfig-alice.conf"
+
+  tasks:
+  - name: Ensure Alice client credentials were generated locally
+    ansible.builtin.assert:
+      that:
+      - hostvars['localhost'].authentication_lab_certificate_data is defined
+      - hostvars['localhost'].authentication_lab_private_key_data is defined
+      fail_msg: >-
+        Alice client credentials were not generated on localhost.
+
+  - name: Ensure cluster connection details were discovered remotely
+    ansible.builtin.assert:
+      that:
+      - hostvars[authentication_lab_source_host].authentication_lab_cluster_name is defined
+      - hostvars[authentication_lab_source_host].authentication_lab_cluster_server is defined
+      - hostvars[authentication_lab_source_host].authentication_lab_cluster_ca_data is defined
+      fail_msg: >-
+        Cluster connection details were not discovered on {{ authentication_lab_source_host }}.
+
+  - name: Cache cluster connection details for local kubeconfig rendering
+    ansible.builtin.set_fact:
+      authentication_lab_cluster_name: >-
+        {{ hostvars[authentication_lab_source_host].authentication_lab_cluster_name }}
+      authentication_lab_cluster_server: >-
+        {{ hostvars[authentication_lab_source_host].authentication_lab_cluster_server }}
+      authentication_lab_cluster_ca_data: >-
+        {{ hostvars[authentication_lab_source_host].authentication_lab_cluster_ca_data }}
+
+  - name: Cache Alice client credentials for kubeconfig rendering
+    ansible.builtin.set_fact:
+      authentication_lab_certificate_data: "{{ hostvars['localhost'].authentication_lab_certificate_data }}"
+      authentication_lab_private_key_data: "{{ hostvars['localhost'].authentication_lab_private_key_data }}"
+
+  - name: Render Alice kubeconfig with invalid client certificate
+    ansible.builtin.template:
+      src: "{{ authentication_lab_kubeconfig_src }}"
+      dest: "{{ authentication_lab_kubeconfig_dest }}"
+      mode: "0600"
+
+  - name: Show where the broken Alice kubeconfig was written
+    ansible.builtin.debug:
+      msg: >-
+        Alice kubeconfig written to {{ authentication_lab_kubeconfig_dest }}. Run
+        kubectl --kubeconfig {{ authentication_lab_kubeconfig_dest }} get pods to troubleshoot the issue.

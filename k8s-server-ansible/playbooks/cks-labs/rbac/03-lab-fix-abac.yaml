@@ -1,0 +1,105 @@
+- name: Prepare lab3 - Fix ABAC
+  hosts: k8s-playground
+  become: true
+
+  vars:
+    abac_lab_dir: /root/labs/abac
+    abac_policy_src: resources/abac.jsonl
+    abac_policy_dest: /root/labs/abac/abac.jsonl
+    kube_apiserver_manifest: /etc/kubernetes/manifests/kube-apiserver.yaml
+    kube_apiserver_backup: /root/labs/abac/kube-apiserver-backup.yaml
+    yq_version: v4.44.3
+    yq_arch_map:
+      x86_64: amd64
+      amd64: amd64
+      aarch64: arm64
+      arm64: arm64
+    yq_arch: "{{ yq_arch_map.get(ansible_facts['architecture'], ansible_facts['architecture']) }}"
+
+  tasks:
+  - name: Ensure ABAC lab directory exists
+    ansible.builtin.file:
+      path: "{{ abac_lab_dir }}"
+      state: directory
+      owner: root
+      group: root
+      mode: "0755"
+
+  - name: Download crictl archive
+    ansible.builtin.get_url:
+      url: "https://github.com/kubernetes-sigs/cri-tools/releases/download/{{ crictl_version }}/crictl-{{ crictl_version }}-linux-{{ yq_arch }}.tar.gz"
+      dest: /tmp/crictl.tar.gz
+      owner: root
+      group: root
+      mode: "0644"
+
+  - name: Install crictl to /usr/local/bin
+    ansible.builtin.unarchive:
+      src: /tmp/crictl.tar.gz
+      dest: /usr/local/bin
+      remote_src: true
+      owner: root
+      group: root
+      mode: "0755"
+      include:
+      - crictl
+
+  - name: Install yq
+    ansible.builtin.get_url:
+      url: "https://github.com/mikefarah/yq/releases/download/{{ yq_version }}/yq_linux_{{ yq_arch }}"
+      dest: /usr/local/bin/yq
+      owner: root
+      group: root
+      mode: "0755"
+
+  - name: Back up kube-apiserver manifest for the lab
+    ansible.builtin.copy:
+      src: "{{ kube_apiserver_manifest }}"
+      dest: "{{ kube_apiserver_backup }}"
+      remote_src: true
+      owner: root
+      group: root
+      mode: "0644"
+
+  - name: Copy ABAC policy file to the control-plane host
+    ansible.builtin.copy:
+      src: "{{ abac_policy_src }}"
+      dest: "{{ abac_policy_dest }}"
+      owner: root
+      group: root
+      mode: "0644"
+
+  - name: Ensure abac service account exists
+    ansible.builtin.shell: >-
+      kubectl create serviceaccount abac --namespace default --dry-run=client -o yaml |
+      kubectl apply -f -
+    register: abac_service_account
+    changed_when: >-
+      'created' in abac_service_account.stdout or
+      'configured' in abac_service_account.stdout
+
+  # Rewrites the kube-apiserver command list structurally: remove existing
+  # authorization flags, append the required ABAC flags, then report changed
+  # only if the manifest content actually differs.
+  - name: Ensure kube-apiserver ABAC flags are set with yq
+    ansible.builtin.shell: |
+      set -eu
+      tmp_file="$(mktemp)"
+      cp "{{ kube_apiserver_manifest }}" "$tmp_file"
+      /usr/local/bin/yq eval -i '
+        (.spec.containers[] | select(.name == "kube-apiserver") | .command) |= (
+          map(select((test("^--authorization-mode=") or test("^--authorization-policy-file=")) | not))
+          + [
+            "--authorization-mode=Node,RBAC,ABAC",
+            "--authorization-policy-file=/root/labs/abac/abac.jsonl"
+          ]
+        )
+      ' "{{ kube_apiserver_manifest }}"
+      if cmp -s "$tmp_file" "{{ kube_apiserver_manifest }}"; then
+        echo unchanged
+      else
+        echo changed
+      fi
+      rm -f "$tmp_file"
+    register: kube_apiserver_abac_flags
+    changed_when: "'changed' in kube_apiserver_abac_flags.stdout"

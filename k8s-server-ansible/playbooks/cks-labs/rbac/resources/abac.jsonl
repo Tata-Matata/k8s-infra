@@ -1,0 +1,1 @@
+{"apiVersion":"abac.authorization.kubernetes.io/v1beta1","kind":"Policy","spec":{"user":"system:serviceaccount:default:abac","namespace":"default","resource":"deployments","apiGroup":"","verb":"get"}

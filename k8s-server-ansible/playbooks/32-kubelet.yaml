@@ -1,0 +1,41 @@
+- name: Install and enable kubelet
+  hosts: k8s-playground
+    
+  tasks:
+  # Update apt package index 
+  - name: Update apt package index
+    ansible.builtin.apt:
+      update_cache: true
+
+  - name: Install kubelet
+    ansible.builtin.apt:
+      name:
+      - kubelet
+      state: present
+
+  - name: apt-mark hold kubelet
+    ansible.builtin.dpkg_selections:
+      name: kubelet
+      selection: hold
+
+  - name: Enable kubelet service
+    ansible.builtin.systemd_service:
+      name: kubelet
+      enabled: true
+      state: started
+  
+  ## POST verification
+
+  # collects Ansible service facts from the target host
+  # it populates variables under ansible_facts.services
+  # for our check we need ansible_facts.services['kubelet.service'].status
+  - name: Gather service facts
+    ansible.builtin.service_facts:
+  
+  - name: Verify kubelet is enabled and running
+    ansible.builtin.assert:
+      that: 
+        - "'kubelet.service' in ansible_facts.services"
+        - ansible_facts.services['kubelet.service'].status == 'enabled'
+        - ansible_facts.services['kubelet.service'].state == 'running'
+      fail_msg: "kubelet service is not enabled and running"

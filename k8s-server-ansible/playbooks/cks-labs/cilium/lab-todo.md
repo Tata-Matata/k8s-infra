@@ -1,0 +1,1 @@
+we need pods on  2 different nodes, because the traffic is encrypted via Wireguard only between nodes. Enable/Disable wireguard encryption and compare traffic

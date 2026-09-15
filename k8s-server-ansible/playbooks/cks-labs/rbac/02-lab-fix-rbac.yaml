@@ -1,0 +1,57 @@
+- name: Prepare lab2 - RBAC troubleshooting 
+  hosts: k8s-playground
+  become: true
+
+  vars:
+    rbac_lab_manifest_src: resources/02-lab-fix-rbac.yaml
+    rbac_lab_manifest_dest: /root/02-lab-fix-rbac.yaml
+    rbac_lab_resources:
+    - kind: role
+      name: default
+      namespace: default
+    - kind: rolebinding
+      name: default
+      namespace: default
+
+  tasks:
+  - name: Copy RBAC lab manifest to the control-plane host
+    ansible.builtin.copy:
+      src: "{{ rbac_lab_manifest_src }}"
+      dest: "{{ rbac_lab_manifest_dest }}"
+      owner: root
+      group: root
+      mode: "0644"
+
+  - name: Check whether RBAC lab resources already exist
+    ansible.builtin.command:
+      cmd: >-
+        kubectl get {{ item.kind }} {{ item.name }}
+        --namespace {{ item.namespace }}
+    register: rbac_lab_resource_checks
+    failed_when: false
+    changed_when: false
+    loop: "{{ rbac_lab_resources }}"
+    loop_control:
+      label: "{{ item.kind }}/{{ item.namespace }}/{{ item.name }}"
+
+  - name: Delete existing RBAC lab resources before apply
+    ansible.builtin.command:
+      cmd: >-
+        kubectl delete --force {{ item.item.kind }} {{ item.item.name }}
+        --namespace {{ item.item.namespace }}
+    register: rbac_lab_resource_deletes
+    changed_when: item.rc == 0
+    failed_when: false
+    when: item.rc == 0
+    loop: "{{ rbac_lab_resource_checks.results }}"
+    loop_control:
+      label: "{{ item.item.kind }}/{{ item.item.namespace }}/{{ item.item.name }}"
+
+  - name: Apply RBAC lab manifest to the cluster
+    ansible.builtin.command:
+      cmd: kubectl apply -f {{ rbac_lab_manifest_dest }}
+    register: rbac_lab_apply
+    changed_when: >-
+      'created' in rbac_lab_apply.stdout or
+      'configured' in rbac_lab_apply.stdout or
+      'unchanged' not in rbac_lab_apply.stdout

@@ -1,0 +1,14 @@
+- name: Install Calico on the cluster
+  hosts: k8s-playground
+  tasks:
+  
+  - name: Install Calico custom resource definitions
+    ansible.builtin.command: "kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v{{ calico_version }}/manifests/v1_crd_projectcalico_org.yaml"
+      
+  - name: Install Tigera operator
+    ansible.builtin.command: "kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v{{ calico_version }}/manifests/tigera-operator.yaml"
+
+  
+  - name: Create custom resources for Calico 
+    ansible.builtin.command: "kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v{{ calico_version }}/manifests/custom-resources.yaml"
+  

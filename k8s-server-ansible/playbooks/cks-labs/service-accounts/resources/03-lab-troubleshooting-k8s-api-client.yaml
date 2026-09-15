@@ -1,0 +1,83 @@
+- name: Prepare troubleshooting lab for k8s-api-client
+  hosts: k8s-playground
+  become: true
+  gather_facts: false
+
+  vars:
+    service_account_lab_namespace: default
+    service_account_lab_deployment_name: k8s-api-client
+    service_account_lab_service_name: k8s-api-client
+    service_account_lab_service_account_name: k8s-api-client
+    service_account_lab_manifest_src: 03-lab-k8s-manifest.yaml
+    service_account_lab_manifest_path: /root/03-lab-troubleshoot-sa-k8s-manifest.yaml
+
+  tasks:
+  - name: Remove the lab service account if it exists
+    ansible.builtin.command:
+      cmd: >-
+        kubectl delete serviceaccount {{ service_account_lab_service_account_name }}
+        --namespace {{ service_account_lab_namespace }} --ignore-not-found
+    environment:
+      KUBECONFIG: "{{ kubeconfig_path }}"
+    register: service_account_lab_delete_sa
+    changed_when: "'deleted' in service_account_lab_delete_sa.stdout"
+
+  - name: Remove previous lab deployment if it exists
+    ansible.builtin.command:
+      cmd: >-
+        kubectl delete deployment {{ service_account_lab_deployment_name }}
+        --namespace {{ service_account_lab_namespace }} --ignore-not-found
+    environment:
+      KUBECONFIG: "{{ kubeconfig_path }}"
+    register: service_account_lab_delete_deployment
+    changed_when: "'deleted' in service_account_lab_delete_deployment.stdout"
+
+  - name: Remove previous lab service if it exists
+    ansible.builtin.command:
+      cmd: >-
+        kubectl delete service {{ service_account_lab_service_name }}
+        --namespace {{ service_account_lab_namespace }} --ignore-not-found
+    environment:
+      KUBECONFIG: "{{ kubeconfig_path }}"
+    register: service_account_lab_delete_service
+    changed_when: "'deleted' in service_account_lab_delete_service.stdout"
+
+  - name: Confirm the lab service account is not present
+    ansible.builtin.command:
+      cmd: >-
+        kubectl get serviceaccount {{ service_account_lab_service_account_name }}
+        --namespace {{ service_account_lab_namespace }}
+    environment:
+      KUBECONFIG: "{{ kubeconfig_path }}"
+    register: service_account_lab_get_sa
+    failed_when: service_account_lab_get_sa.rc == 0
+    changed_when: false
+
+  - name: Copy k8s-api-client manifest for the troubleshooting lab
+    ansible.builtin.copy:
+      src: "{{ service_account_lab_manifest_src }}"
+      dest: "{{ service_account_lab_manifest_path }}"
+      owner: root
+      group: root
+      mode: "0644"
+
+  - name: Apply the troubleshooting lab manifest to the cluster
+    ansible.builtin.command:
+      cmd: kubectl apply -f {{ service_account_lab_manifest_path }}
+    environment:
+      KUBECONFIG: "{{ kubeconfig_path }}"
+    register: service_account_lab_apply
+    changed_when: >-
+      'created' in service_account_lab_apply.stdout or
+      'configured' in service_account_lab_apply.stdout or
+      'unchanged' not in service_account_lab_apply.stdout
+
+  - name: Show the workload and service that were prepared for troubleshooting
+    ansible.builtin.debug:
+      msg: >-
+        Rolled out deployment {{ service_account_lab_deployment_name }} in namespace
+        {{ service_account_lab_namespace }}. The Service is exposed on port 8888
+        and forwards to container port 8080. To reach it locally, run:
+        kubectl port-forward --namespace {{ service_account_lab_namespace }}
+        service/{{ service_account_lab_service_name }} 8888:8888
+        Then open http://localhost:8888/pods?namespace={{ service_account_lab_namespace }}.

@@ -1,0 +1,59 @@
+- name: Install CNI plugins
+  hosts: k8s-playground
+  vars:
+    cniplugins_version: "1.9.1"
+    tmp_folder: /tmp/cniplugins
+    cniplugins_folder: /opt/cni/bin
+    filename: "cni-plugins-linux-amd64-v{{ cniplugins_version }}.tgz"
+    full_archivepath: "{{ tmp_folder }}/{{ filename }}"
+    cniplugins_sha256: "sha256:b98f74a0f8522f0a83867178729c1aa70f2158f90c45a2ca8fa791db1c76b303"
+    download_url: "https://github.com/containernetworking/plugins/releases/download/v{{ cniplugins_version }}/{{ filename }}"
+  tasks:
+  # DOWNLOAD and UNPACK
+  - name: Ensure tmp folder for download exists
+    ansible.builtin.file:
+        path: "{{ tmp_folder }}"
+        state: directory
+        mode: '0700'
+        owner: root
+        group: root
+  - name: Ensure CNI plugins folder exists
+    ansible.builtin.file:
+      path: "{{ cniplugins_folder }}"
+      state: directory
+      mode: '0755'
+      owner: root
+      group: root
+  - name: Download CNI plugins  archive
+    ansible.builtin.get_url:
+      url: "{{ download_url }}"
+      dest: "{{ full_archivepath }}"
+      mode: '0644'
+      checksum: "{{ cniplugins_sha256 }}"
+  - name: Unpack
+    ansible.builtin.unarchive:
+      src: "{{ full_archivepath }}"
+      dest: "{{ cniplugins_folder }}"
+      # unarchive needs this, otherwise it assumes the archive is on the controller machine and copies it to the dest
+      remote_src: true 
+
+  # CHECK one plugin
+  - name: Check bridge plugin exists
+    ansible.builtin.stat:
+      path: "{{ cniplugins_folder }}/bridge"
+    register: cni_bridge
+  
+  - name: Fail if bridge plugin is missing
+    ansible.builtin.fail:
+      msg: "CNI plugins do not appear to be installed. Check {{ cniplugins_folder }}/bridge"
+    when: not cni_bridge.stat.exists
+
+
+    ###  POST-INSTALL Cleanup
+  - name: Remove tmp folder
+    ansible.builtin.file:
+      path: "{{ tmp_folder }}"
+      state: absent
+
+
+    

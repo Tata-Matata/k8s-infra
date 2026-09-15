@@ -1,0 +1,74 @@
+- name: Disable swap at the OS level and persist it on controll plane node
+  hosts: k8s-playground
+    
+  tasks:
+  # CHECK if enabled
+
+  # collects Ansible facts from the target host
+  # it populates variables under ansible_facts
+  # for our check we need this one ansible_facts.swaptotal_mb
+  - name: Gather facts
+    ansible.builtin.setup:
+
+  - name: Show swap total
+    ansible.builtin.debug:
+      msg: "swaptotal_mb={{ ansible_facts.swaptotal_mb }}"
+
+
+
+  # DISABLE
+  - name: Disable swap 
+    when: ansible_facts.swaptotal_mb | int > 0
+
+    block:
+    - name: Disable active swap now (not persistent)
+      ansible.builtin.command: sudo swapoff -a
+      when: ansible_facts.swaptotal_mb | int > 0
+  
+    # disable persistently by commenting out the line containing swap in fstab file
+    - name: Disable swap entries in fstab
+      ansible.builtin.replace:
+        path: /etc/fstab
+        regexp: '^(\\s*[^#]\\S+\\s+none\\s+swap\\s+.*)$'
+        replace: '# \\1'
+      when: ansible_facts.swaptotal_mb | int > 0
+        
+    # a native systemd .swap unit could also configure swap either via fstab or  explicit .swap units
+    
+    # shows installed unit files and whether they are enabled, disabled, masked, static, etc.
+    - name: List installed swap unit files
+      ansible.builtin.command: systemctl list-unit-files --type=swap --no-legend --plain
+      register: swap_unit_files
+      changed_when: false
+
+    - name: Build list of swap unit names
+      ansible.builtin.set_fact:
+        # initial swap_unit_files.stdout_lines ["dev-zram0.swap enabled", "swapfile.swap disabled"]
+        # map('split') splits each value on whitespace => ["dev-zram0.swap", "enabled"], ["swapfile.swap", "disabled"]
+        # map('first') takes the first element of each list
+        # list transforms iterator-like object in Jinja into a normal list Ansible can loop over
+        # - dev-zram0.swap
+        # - swapfile.swap
+        swap_unit_names: "{{ swap_unit_files.stdout_lines | map('split') | map('first') | list }}"
+
+    - name: Disable and mask swap units
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        enabled: false
+        masked: true
+        state: stopped
+      loop: "{{ swap_unit_names }}"
+  
+    # POST CHECK
+    - name: Refresh facts after applied changes
+      ansible.builtin.setup:
+
+    - name: Show swap total after applying changes
+      ansible.builtin.debug:
+        msg: "swaptotal_mb={{ ansible_facts.swaptotal_mb }}"
+    
+    - name: Verify swap is disabled
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.swaptotal_mb | int == 0
+        fail_msg: "Swap is still enabled"

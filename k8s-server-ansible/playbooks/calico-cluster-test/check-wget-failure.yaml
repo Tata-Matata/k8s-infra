@@ -1,0 +1,22 @@
+- name: Run connectivity check expected to fail
+  ansible.builtin.command: "{{ wget_command }}"
+  register: wget_response
+  changed_when: false
+  failed_when: false
+
+- name: Log failed connectivity response
+  ansible.builtin.debug:
+    msg: "{{ wget_response.stderr }}"
+  changed_when: false
+
+- name: Assert connectivity failed
+  ansible.builtin.assert:
+    that:
+      - wget_response.rc != 0
+      - >
+        'bad address' in wget_response.stderr or
+        'timed out' in wget_response.stderr or
+        'failed' in wget_response.stderr or
+        'refused' in wget_response.stderr
+    fail_msg: "{{ failure_fail_msg }}"
+  changed_when: false

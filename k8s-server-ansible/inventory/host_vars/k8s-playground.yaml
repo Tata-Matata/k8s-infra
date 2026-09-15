@@ -1,0 +1,18 @@
+k8s_version: "1.36"
+k8s_full_version: "{{ k8s_version }}.1"
+kubeconfig_path: /etc/kubernetes/admin.conf
+crictl_version: "v1.30.0"
+
+
+#for Calico
+pod_network_cidr: "192.168.0.0/16" 
+calico_version: "3.32.0"
+calico_ns: calicostart
+calico_tmp_folder: /tmp/calico
+
+
+
+## CIS CAT Lite
+cis_cat_install_dir: /opt/CIS-CAT-Lite
+java_version: "21"
+java_runtime_dir: /opt/temurin-jre-{{ java_version }}

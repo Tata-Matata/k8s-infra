@@ -1,0 +1,21 @@
+## Fixes for initial findings found by CIS-CAT-Lite tool
+
+- name: Fix all findings found by CIS-CAT-Lite tool on first run
+  hosts: k8s-playground
+
+  tasks:
+  - name: "Finding_1: Unload usb-storage kernel module"
+    ansible.builtin.shell: |
+      modprobe -r usb-storage 2>/dev/null || true
+      rmmod usb-storage 2>/dev/null || true
+    
+  - name: "Finding_1: Disable usb-storage module loading"
+    ansible.builtin.copy:
+      dest: /etc/modprobe.d/60-usb-storage.conf
+      owner: root
+      group: root
+      mode: "0644"
+      content: |
+        install usb-storage /bin/false
+        blacklist usb-storage
+  

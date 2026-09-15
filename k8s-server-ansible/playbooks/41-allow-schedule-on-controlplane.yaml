@@ -1,0 +1,22 @@
+## since this is a one node cluster, the controlplane is also a worker node
+# by default, controlplane has  a taint that does not allow scheduling workload pods on it
+# we need to remove it
+- name: Remove NoSchedule taint from controlplane
+  hosts: k8s-playground
+  tasks:
+  
+  - name: Remove controlplane taint
+    ansible.builtin.command: 
+     cmd: kubectl taint nodes --all node-role.kubernetes.io/control-plane-
+
+  - name: Log taints
+    ansible.builtin.command:
+      cmd: kubectl get node k8s-playground -o jsonpath={.spec.taints[*].key}
+    register: controlplane_taints
+    changed_when: false
+
+  - name: Check taint removed from controlplane node
+    ansible.builtin.assert:
+      that:
+        - "'node-role.kubernetes.io/control-plane' not in controlplane_taints.stdout"
+      fail_msg: "Node is still tainted"

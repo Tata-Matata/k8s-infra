@@ -1,0 +1,28 @@
+- name: Start containerd via systemd
+  hosts: k8s-playground
+  vars:
+    systemd_folder: "/usr/local/lib/systemd/system/"
+    full_systemd_path: "{{ systemd_folder }}/containerd.service"
+    download_url: "https://raw.githubusercontent.com/containerd/containerd/main/containerd.service"
+  tasks:
+    - name: Ensure systemd folder exists
+      ansible.builtin.file:
+          path: "{{ systemd_folder }}"
+          state: directory
+          mode: '0755'
+          owner: root
+          group: root
+    - name: Download containerd systemd service file
+      ansible.builtin.get_url:
+        url: "{{ download_url }}"
+        dest: "{{ full_systemd_path }}"
+        mode: '0644'
+
+    - name: Enable and start containerd as service
+      ansible.builtin.systemd_service:
+        name: containerd
+        enabled: true
+        state: started
+
+
+    

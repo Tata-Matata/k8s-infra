@@ -1,0 +1,73 @@
+- name: Install kube-bench
+  hosts: k8s-playground
+  vars:
+    kubebench_version: "0.15.6"
+    tmp_folder: /tmp/kubebench
+    filename: "kube-bench_{{ kubebench_version }}_linux_amd64.deb"
+    full_installer_path: "{{ tmp_folder }}/{{ filename }}"
+    kubebench_sha256: "sha256:6bc5d4a3015a3bf5a71eab5152415fcc0ae5626b705ebe214677a8649105afd6"
+    download_url: "https://github.com/aquasecurity/kube-bench/releases/download/v{{ kubebench_version }}/{{ filename }}"
+    download_timeout_seconds: 120
+
+    
+  tasks:
+  - name: Check installed kube-bench version
+    ansible.builtin.command: kube-bench version
+    failed_when: false
+    register: kubebench_installed_version
+  - name: Check if the installed version is the desired one
+    ansible.builtin.set_fact:
+      install_kubebench: "{{ kubebench_installed_version.rc != 0 or kubebench_version not in kubebench_installed_version.stdout}}"
+    # this task will never fail
+    failed_when: false 
+    changed_when: false
+  - name: Log already installed kubebench version before installation
+    ansible.builtin.debug:
+      msg:
+        - "installed version response code={{ kubebench_installed_version.rc }}"
+        - "installed version={{ kubebench_installed_version.stdout }}"
+        - "install_kubebench={{ install_kubebench }}"
+  
+  #### INSTALL
+  - name: Install kube-bench
+    when: install_kubebench
+    block:
+    - name: Ensure tmp folder for download exists
+      ansible.builtin.file:
+          path: "{{ tmp_folder }}"
+          state: directory
+          mode: '0700'
+          owner: root
+          group: root
+    - name: Download kube-bench installer
+      ansible.builtin.get_url:
+        url: "{{ download_url }}"
+        dest: "{{ full_installer_path }}"
+        mode: '0644'
+        checksum: "{{ kubebench_sha256 }}"
+        timeout: "{{ download_timeout_seconds }}"
+    
+    - name: Install kube-bench
+      ansible.builtin.command: 
+        cmd: "dpkg -i {{ full_installer_path }}"
+
+    - name: Verify kube-bench after installation
+      ansible.builtin.command: kube-bench version
+      register: kubebench_installed
+      changed_when: false
+    
+    - name: Log kube-bench version after installation
+      ansible.builtin.debug:
+        msg:
+        - "installed version response code={{ kubebench_installed.rc }}"
+        - "installed version={{ kubebench_installed.stdout }}"
+
+
+      ###  POST-INSTALL Cleanup
+    - name: Remove tmp folder
+      ansible.builtin.file:
+        path: "{{ tmp_folder }}"
+        state: absent
+
+
+    

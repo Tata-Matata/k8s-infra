@@ -1,0 +1,55 @@
+- name: Run kube-bench analysis
+  hosts: k8s-playground
+  become: true
+
+  vars_files:
+  - kube-bench-vars.yaml
+
+  tasks:
+  - name: Ensure kube-bench report directory exists
+    ansible.builtin.file:
+      path: "{{ kubebench_reports_dir }}"
+      state: directory
+      owner: root
+      group: root
+      mode: "0755"
+
+  - name: Run kube-bench analysis
+    ansible.builtin.command:
+      argv:
+      - kube-bench
+      - run
+    register: kubebench_run
+    changed_when: false
+    failed_when: kubebench_run.rc not in [0, 1]
+
+  - name: Persist kube-bench report on host
+    ansible.builtin.copy:
+      content: "{{ kubebench_run.stdout }}\n"
+      dest: "{{ kubebench_report_path }}"
+      owner: root
+      group: root
+      mode: "0644"
+
+  - name: Persist kube-bench HTML report on host
+    ansible.builtin.template:
+      src: "{{ kubebench_report_template }}"
+      dest: "{{ kubebench_report_html_path }}"
+      owner: root
+      group: root
+      mode: "0644"
+
+  - name: Show kube-bench execution summary
+    ansible.builtin.debug:
+      msg: "{{ kubebench_run.stdout_lines | default([]) }}"
+
+  - name: Show kube-bench report location
+    ansible.builtin.debug:
+      msg:
+      - "kube-bench exit code={{ kubebench_run.rc }}"
+      - "report saved to {{ kubebench_report_path }}"
+      - "html report saved to {{ kubebench_report_html_path }}"
+
+  - name: Show local port-forward command
+    ansible.builtin.debug:
+      msg: "Use kubectl --kubeconfig ~/kubernetes/hetzner-playground/admin.conf port-forward -n {{ kubebench_namespace }} svc/{{ kubebench_nginx_name }} {{ kubebench_local_port_forward_port }}:{{ kubebench_service_port }} and then open http://localhost:{{ kubebench_local_port_forward_port }}/"

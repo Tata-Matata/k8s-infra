@@ -1,0 +1,8 @@
+cis_cat_reports_dir: /srv/cis-cat-report
+cis_cat_report_prefix: index
+cis_cat_namespace: cis-cat-report
+cis_cat_nginx_name: cis-cat-report-nginx
+cis_cat_nginx_image: nginx:1.27-alpine
+cis_cat_manifest_path: /tmp/cis-cat-report-nginx.yaml
+cis_cat_service_port: 80
+cis_cat_local_port_forward_port: 8888

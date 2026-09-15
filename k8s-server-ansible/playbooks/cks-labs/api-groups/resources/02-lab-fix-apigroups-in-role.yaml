@@ -1,0 +1,41 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: apigroups
+  namespace: default
+rules:
+- apiGroups: [""]
+  resources:
+  - configmaps
+  - deployments
+  - jobs
+  - networkpolicies
+  - horizontalpodautoscalers
+  verbs:
+  - get
+  - list
+  - create
+
+---
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: apigroups
+  namespace: default
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: apigroups
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: apigroups
+subjects:
+- kind: ServiceAccount
+  name: apigroups
+  namespace: default
