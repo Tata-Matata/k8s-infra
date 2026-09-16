@@ -33,6 +33,13 @@ module "controlplane" {
 
 }
 
+locals {
+  nat_gateway_private_ip = cidrhost(
+    data.terraform_remote_state.core_network.outputs.subnet_cidr,
+    var.controlplane_offsets[var.nat_gateway_host]
+  )
+}
+
 module "worker" {
   for_each = var.worker_offsets
   source   = "../modules/hetzner_server"
@@ -71,6 +78,16 @@ module "worker" {
 
 }
 
+resource "hcloud_network_route" "private_default_via_nat" {
+  // Private-only workers have no public egress, so Hetzner routes their default
+  // traffic through the first control plane, which performs NAT to the internet.
+  network_id  = data.terraform_remote_state.core_network.outputs.parent_network_id
+  destination = "0.0.0.0/0"
+  gateway     = local.nat_gateway_private_ip
+
+  depends_on = [module.controlplane]
+}
+
 module "hetzner_firewall_ssh_only" {
   source = "../modules/hetzner_firewall_ssh_only"
 
@@ -85,13 +102,9 @@ module "hetzner_firewall_k8s_cluster" {
   #access to the controlplanes only from this subnet (laptop) via ssh
   admin_ssh_subnet_cidr = "${local.my_ip}/32"
 
-  # subnet with controlplanes and worker nodes
-  private_subnet_cidr   = data.terraform_remote_state.core_network.outputs.subnet_cidr
-  
-  # IPs of controlplanes as one host subnet
-  controlplane_ip_cidrs = [
-    for host_offset in values(var.controlplane_offsets) :
-    "${cidrhost(data.terraform_remote_state.core_network.outputs.subnet_cidr, host_offset)}/32"
+  controlplane_server_ids = [
+    for server in values(module.controlplane) :
+    server.server_id
   ]
 
 }

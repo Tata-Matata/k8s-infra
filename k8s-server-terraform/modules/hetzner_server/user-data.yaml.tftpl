@@ -1,0 +1,16 @@
+#cloud-config
+write_files:
+  - path: /etc/netplan/60-hcloud-private-network.yaml
+    permissions: "0644"
+    content: |
+      network:
+        version: 2
+        ethernets:
+          private_nics:
+            match:
+              name: "en*"
+            dhcp4: true
+            optional: true
+runcmd:
+  - netplan generate
+  - netplan apply

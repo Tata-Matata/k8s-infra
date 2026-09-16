@@ -1,1 +1,0 @@
-trivy image --input alpine.tar --format json --output /root/alpine.json

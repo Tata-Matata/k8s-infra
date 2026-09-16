@@ -1,0 +1,27 @@
+k8s_version: "1.36"
+k8s_full_version: "{{ k8s_version }}.1"
+kubeconfig_path: /etc/kubernetes/admin.conf
+crictl_version: "v1.30.0"
+private_network_cidr: "10.50.0.0/16"
+private_network_gateway_ip: "10.50.0.1"
+private_nat_nameservers:
+  - "185.12.64.1"
+  - "185.12.64.2"
+# Set this to a stable DNS name or VIP with port 6443 when you have more than
+# one control plane, for example "cp.k8s.example.com:6443".
+
+# after the first control plane runs kubeadm init, 
+# the other control planes should join through a stable API endpoint, not through the first node’s individual IP. 
+# Leave it empty for a single-control-plane cluster.
+control_plane_endpoint: ""
+
+# for Calico
+pod_network_cidr: "192.168.0.0/16"
+calico_version: "3.32.0"
+calico_ns: calicostart
+calico_tmp_folder: /tmp/calico
+
+# CIS CAT Lite
+cis_cat_install_dir: /opt/CIS-CAT-Lite
+java_version: "21"
+java_runtime_dir: /opt/temurin-jre-{{ java_version }}

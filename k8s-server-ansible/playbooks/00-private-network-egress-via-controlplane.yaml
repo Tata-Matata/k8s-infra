@@ -1,0 +1,104 @@
+- name: Configure the first control plane as a NAT gateway
+  hosts: controlplanes[0]
+  gather_facts: true
+  vars:
+    nat_public_interface: "{{ ansible_default_ipv4.interface }}"
+    nat_private_interface: "{{ (ansible_interfaces | select('match', '^en') | reject('equalto', ansible_default_ipv4.interface) | list | first) | default('') }}"
+  tasks:
+  - name: Check detected NAT interfaces
+    ansible.builtin.assert:
+      that:
+        - nat_public_interface | length > 0
+        - nat_private_interface | length > 0
+      fail_msg: "Could not determine both the public and private interfaces for NAT"
+
+  - name: Install persistent iptables packages
+    ansible.builtin.apt:
+      name:
+        - iptables-persistent
+        - netfilter-persistent
+      state: present
+      update_cache: true
+    environment:
+      DEBIAN_FRONTEND: noninteractive
+
+  - name: Persist IPv4 forwarding for NAT
+    ansible.builtin.sysctl:
+      name: net.ipv4.ip_forward
+      value: "1"
+      state: present
+      sysctl_set: true
+      reload: true
+
+  - name: Add NAT masquerade rule
+    ansible.builtin.shell: |
+      iptables -t nat -C POSTROUTING -s {{ private_network_cidr }} -o {{ nat_public_interface }} -j MASQUERADE || {
+        iptables -t nat -A POSTROUTING -s {{ private_network_cidr }} -o {{ nat_public_interface }} -j MASQUERADE
+        echo added
+      }
+    register: nat_masquerade_rule
+    changed_when: "'added' in nat_masquerade_rule.stdout"
+
+  - name: Allow forwarding from private to public interface
+    ansible.builtin.shell: |
+      iptables -C FORWARD -i {{ nat_private_interface }} -o {{ nat_public_interface }} -j ACCEPT || {
+        iptables -A FORWARD -i {{ nat_private_interface }} -o {{ nat_public_interface }} -j ACCEPT
+        echo added
+      }
+    register: nat_forward_out_rule
+    changed_when: "'added' in nat_forward_out_rule.stdout"
+
+  - name: Allow return traffic from public to private interface
+    ansible.builtin.shell: |
+      iptables -C FORWARD -i {{ nat_public_interface }} -o {{ nat_private_interface }} -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT || {
+        iptables -A FORWARD -i {{ nat_public_interface }} -o {{ nat_private_interface }} -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+        echo added
+      }
+    register: nat_forward_return_rule
+    changed_when: "'added' in nat_forward_return_rule.stdout"
+
+  - name: Persist iptables rules
+    ansible.builtin.command: netfilter-persistent save
+    changed_when: false
+    when:
+      - nat_masquerade_rule.changed or nat_forward_out_rule.changed or nat_forward_return_rule.changed
+
+- name: Configure workers to use NAT for outbound traffic
+  hosts: workers
+  gather_facts: true
+  vars:
+    private_interface: "{{ (ansible_interfaces | select('match', '^en') | list | first) | default('') }}"
+  tasks:
+  - name: Check detected worker private interface
+    ansible.builtin.assert:
+      that:
+        - private_interface | length > 0
+      fail_msg: "Could not determine the private network interface on the worker"
+
+  - name: Check whether Hetzner private-interface autoconfiguration service exists
+    ansible.builtin.command: systemctl list-unit-files hc-net-ifup@{{ private_interface }}.service --no-legend
+    register: hc_net_ifup_service
+    changed_when: false
+    failed_when: false
+
+  - name: Stop Hetzner private-interface autoconfiguration service
+    ansible.builtin.systemd_service:
+      name: hc-net-ifup@{{ private_interface }}.service
+      state: stopped
+      masked: true
+    when:
+      - hc_net_ifup_service.rc == 0
+      - hc_net_ifup_service.stdout | trim | length > 0
+
+  - name: Configure worker private interface with default route and DNS
+    ansible.builtin.template:
+      src: worker-private-network.yaml.j2
+      dest: /etc/netplan/60-hcloud-private-network.yaml
+      owner: root
+      group: root
+      mode: '0644'
+    register: worker_netplan
+
+  - name: Apply worker netplan configuration
+    ansible.builtin.command: netplan apply
+    when: worker_netplan.changed

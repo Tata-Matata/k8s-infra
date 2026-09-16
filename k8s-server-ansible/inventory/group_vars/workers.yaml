@@ -1,0 +1,4 @@
+# Workers are only reachable through the first control plane, so SSH tunnels
+# through that node and reuses the same private key for the bastion hop.
+ansible_ssh_common_args: >-
+  -o ProxyCommand="ssh -i {{ ansible_private_key_file }} -o IdentitiesOnly=yes -W %h:%p {{ hostvars[groups['controlplanes'][0]].ansible_user | default('root') }}@{{ hostvars[groups['controlplanes'][0]].ansible_host }}"

@@ -1,7 +1,7 @@
 ## kubeconfig for admin is copied to local laptop
 ## so that later we can run kubectl remotely
 - name: Control cluster from outside
-  hosts: k8s-playground
+  hosts: controlplanes[0]
   vars:
     local_home_dir: "/home/tati/"
     adminconf_controlplane_path: "{{ kubeconfig_path }}"

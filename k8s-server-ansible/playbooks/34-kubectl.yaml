@@ -1,5 +1,5 @@
 - name: Install kubectl
-  hosts: k8s-playground
+  hosts: controlplanes
     
   tasks:
   # Update apt package index 

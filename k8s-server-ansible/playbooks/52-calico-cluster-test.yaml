@@ -1,6 +1,0 @@
-- import_playbook: calico-cluster-test/0-cleanup.yaml
-- import_playbook: calico-cluster-test/1-calico-rollout-testdeploy.yaml
-- import_playbook: calico-cluster-test/2-calico-test-default-deny-policy.yaml
-- import_playbook: calico-cluster-test/3-calico-test-targeted-network-policy-allow-egress.yaml
-- import_playbook: calico-cluster-test/4-calico-test-targeted-network-policy-allow-ingress.yaml
-- import_playbook: calico-cluster-test/5-calico-remove-testcluster.yaml

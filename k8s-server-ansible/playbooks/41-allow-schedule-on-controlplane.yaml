@@ -1,8 +1,6 @@
-## since this is a one node cluster, the controlplane is also a worker node
-# by default, controlplane has  a taint that does not allow scheduling workload pods on it
-# we need to remove it
+## optional for lab or single-node setups where control planes should also run workloads
 - name: Remove NoSchedule taint from controlplane
-  hosts: k8s-playground
+  hosts: controlplanes[0]
   tasks:
   
   - name: Remove controlplane taint
@@ -11,7 +9,7 @@
 
   - name: Log taints
     ansible.builtin.command:
-      cmd: kubectl get node k8s-playground -o jsonpath={.spec.taints[*].key}
+      cmd: kubectl get node {{ groups['controlplanes'][0] }} -o jsonpath={.spec.taints[*].key}
     register: controlplane_taints
     changed_when: false
 

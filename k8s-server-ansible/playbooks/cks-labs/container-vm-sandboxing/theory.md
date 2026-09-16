@@ -1,6 +1,0 @@
-## Container sandboxing
-
-- seccomp
-- apparmor
-- 
-- 

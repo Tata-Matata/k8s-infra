@@ -26,6 +26,7 @@ variable "server_type" {
 
 locals {
   host_ip = cidrhost(var.subnet_cidr, var.host_offset)
+  effective_user_data = var.user_data != "" ? var.user_data : templatefile("${path.module}/user-data.yaml.tftpl", {})
 }
 
 // e.g., for 10.50.1.20 use offset 20
@@ -56,7 +57,7 @@ variable "server_name" {
 }
 
 variable "user_data" {
-  description = "User data script to initialize the server"
+  description = "User data script to initialize the server. Leave empty to use the default cloud-init for private NIC DHCP on Hetzner."
   type        = string
   default     = ""
 

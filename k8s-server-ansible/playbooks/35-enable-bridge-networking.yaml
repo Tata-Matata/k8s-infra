@@ -1,5 +1,5 @@
 - name: Configure br_netfilter and sysctl bridge
-  hosts: k8s-playground
+  hosts: k8s_cluster
     
   tasks:
   

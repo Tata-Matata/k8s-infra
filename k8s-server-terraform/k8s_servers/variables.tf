@@ -41,6 +41,17 @@ variable "worker_offsets" {
   }
 }
 
+variable "nat_gateway_host" {
+  type        = string
+  description = "Control plane host that acts as the NAT gateway for private-only nodes"
+  default     = "controlplane-1"
+
+  validation {
+    condition     = contains(keys(var.controlplane_offsets), var.nat_gateway_host)
+    error_message = "nat_gateway_host must match one of the controlplane_offsets keys."
+  }
+}
+
 # from which servers admin is allowed to ssh into the k8s server
 variable "admin_ssh_subnet_cidr" {
   type = string

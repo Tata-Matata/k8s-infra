@@ -1,5 +1,5 @@
 - name: Install runc
-  hosts: k8s-playground
+  hosts: k8s_cluster
   vars:
     runc_version: "1.4.2"
     tmp_folder: /tmp/runc

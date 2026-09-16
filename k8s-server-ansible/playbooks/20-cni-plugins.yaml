@@ -1,5 +1,5 @@
 - name: Install CNI plugins
-  hosts: k8s-playground
+  hosts: k8s_cluster
   vars:
     cniplugins_version: "1.9.1"
     tmp_folder: /tmp/cniplugins

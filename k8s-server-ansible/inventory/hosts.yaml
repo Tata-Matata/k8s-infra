@@ -1,3 +1,14 @@
 all:
-  hosts:
-    k8s-playground:
+  children:
+    controlplanes:
+      hosts:
+        controlplane-1:
+          ansible_host: 78.46.216.59
+    workers:
+      hosts:
+        worker-1:
+          ansible_host: 10.50.1.1
+    k8s_cluster:
+      children:
+        controlplanes:
+        workers:

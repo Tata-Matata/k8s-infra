@@ -1,5 +1,5 @@
 - name: Install and enable kubelet
-  hosts: k8s-playground
+  hosts: k8s_cluster
     
   tasks:
   # Update apt package index 
