@@ -16,6 +16,7 @@
       url: "{{ cilium_cli_download_url }}"
       dest: "{{ cilium_cli_archive_path }}"
       mode: '0644'
+      checksum: "{{ cilium_cli_checksum }}"
       force: true
     delegate_to: localhost
 

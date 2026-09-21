@@ -1,11 +1,19 @@
 k8s_version: "1.36"
 k8s_patch_version: "4"
 k8s_full_version: "{{ k8s_version }}.{{ k8s_patch_version }}"
+kubectl_checksum: "sha256:8b8f088da2dab964f853b38464033b1be15ede2839eca751482357c45abdd05a"
 kubeconfig_path: /etc/kubernetes/admin.conf
+containerd_version: "2.3.5"
+containerd_service_sha256: "sha256:1941362cbaa89dd591b99c32b050d82c583d3cd2e5fa63085d7017457ec5fca8"
+runc_version: "1.5.1"
 crictl_version: "v1.37.0"
 private_network_cidr: "10.50.0.0/16"
 # Set this to a stable private DNS name or VIP with port 6443 when you have
 # more than one control plane, for example "cp.k8s.example.com:6443".
+#
+# This is optional and cluster-wide. It does not replace each control plane
+# node's required private_ip in inventory, which kubeadm still uses as the
+# local advertiseAddress for that node.
 #
 # After the first control plane runs kubeadm init, the other control planes
 # should join through a stable API endpoint, not through the first node's
@@ -32,6 +40,7 @@ cilium_release_name: cilium
 cilium_cli_version: "0.20.0"
 cilium_cli_archive_name: "cilium-linux-amd64.tar.gz"
 cilium_cli_download_url: "https://github.com/cilium/cilium-cli/releases/download/v{{ cilium_cli_version }}/{{ cilium_cli_archive_name }}"
+cilium_cli_checksum: "sha256:94adc5c3be44d8240df91cec520536686f8a1eb29e5bc70c4c1c80137f00d764"
 cilium_hubble_enabled: true
 cilium_hubble_relay_enabled: true
 cilium_hubble_ui_enabled: true

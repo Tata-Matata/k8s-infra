@@ -27,7 +27,7 @@
         group: root
   # The same signing key is used for all repositories so you can disregard the version in the URL:
   - name: Download and add gpg signing key 
-    ansible.builtin.shell: "curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.36/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg"
+    ansible.builtin.shell: "curl -fsSL https://pkgs.k8s.io/core:/stable:/v{{ k8s_version }}/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg"
     args:
       # if the file already exists, Ansible skips the command
       creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg

@@ -1,3 +1,8 @@
+# In this repo, Cilium runs in kube-proxy-free eBPF mode, so Kubernetes
+# NetworkPolicy enforcement does not depend on iptables bridge hooks the way
+# iptables-based CNIs do. We still apply these bridge netfilter
+# settings as a conservative compatibility measure in case some host or future
+# cluster networking component expects bridged traffic to traverse netfilter.
 - name: Configure br_netfilter and sysctl bridge
   hosts: k8s_cluster
     

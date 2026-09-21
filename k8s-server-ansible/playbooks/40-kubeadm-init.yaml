@@ -2,45 +2,19 @@
   hosts: controlplanes[0]
   vars:
     admin_conf_path: /etc/kubernetes/admin.conf
-    kubeadm_controlplane_private_interface: >-
-      {{
-        ansible_interfaces
-        | select('match', '^en')
-        | reject('equalto', ansible_default_ipv4.interface)
-        | list
-        | first
-        | default('')
-      }}
   gather_facts: true
   tasks:
-  - name: Fail if no private interface can be derived for kubeadm
-    ansible.builtin.fail:
-      msg: >-
-        Could not derive a private interface for the first control plane.
-        Define control_plane_endpoint for a stable private API endpoint or adjust
-        the interface detection logic.
-    when:
-      - control_plane_endpoint | length == 0
-      - kubeadm_controlplane_private_interface | length == 0
-
-  - name: Detect private API advertise IP on first control plane
-    ansible.builtin.shell: "ip -4 -o addr show dev {{ kubeadm_controlplane_private_interface }} | awk '{print $4}' | cut -d/ -f1"
-    register: kubeadm_controlplane_private_ip
-    changed_when: false
-    when: control_plane_endpoint | length == 0
-
-  - name: Derive kubeadm API advertise address
-    ansible.builtin.set_fact:
-      kubeadm_api_advertise_address: >-
-        {{
-          control_plane_endpoint.split(':')[0]
-          if control_plane_endpoint | length > 0
-          else (kubeadm_controlplane_private_ip.stdout | trim)
-        }}
+  - name: Require private_ip in inventory for the first control plane
+    ansible.builtin.assert:
+      that:
+        - private_ip is defined
+        - private_ip | length > 0
+      fail_msg: >-
+        private_ip must be set in inventory for the first control plane.
 
   - name: Create config file for kubeadm from Jinja template
     ansible.builtin.template:
-      src: kubeadm-init.yaml.j2
+      src: templates/kubeadm-init.yaml.j2
       dest: /root/kubeadm-init.yaml
       owner: root
       group: root
@@ -48,7 +22,7 @@
 
   - name: Show detected IP
     ansible.builtin.debug:
-      msg: "{{ kubeadm_api_advertise_address }}"
+      msg: "{{ private_ip }}"
 
   - name: Stop kubelet service before kubeadm init
     ansible.builtin.systemd_service:

@@ -3,7 +3,7 @@ kind: InitConfiguration
 skipPhases:
   - addon/kube-proxy
 localAPIEndpoint:
-  advertiseAddress: "{{ kubeadm_api_advertise_address }}"
+  advertiseAddress: "{{ private_ip }}"
   bindPort: 6443
 nodeRegistration:
   criSocket: "unix:///run/containerd/containerd.sock"

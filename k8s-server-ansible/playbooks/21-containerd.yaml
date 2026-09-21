@@ -1,7 +1,6 @@
 - name: Install containerd
   hosts: k8s_cluster
   vars:
-    containerd_version: "2.3.5"
     tmp_folder: /tmp/containterd
     filename: "containerd-{{ containerd_version }}-linux-amd64.tar.gz"
     full_archivepath: "{{ tmp_folder }}/{{ filename }}"

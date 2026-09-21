@@ -1,7 +1,6 @@
 - name: Install runc
   hosts: k8s_cluster
   vars:
-    runc_version: "1.5.1"
     tmp_folder: /tmp/runc
     filename: "runc.amd64"
     full_installer_path: "{{ tmp_folder }}/{{ filename }}"

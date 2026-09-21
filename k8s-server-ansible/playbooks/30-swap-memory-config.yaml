@@ -1,3 +1,7 @@
+# Kubernetes guidance for Linux nodes is to disable swap unless you
+# intentionally configure kubelet NodeSwap behavior. Keeping swap off makes
+# kubelet memory accounting and eviction behavior more predictable, and it is
+# the default expectation in kubeadm-based cluster setup docs.
 - name: Disable swap at the OS level and persist it on cluster nodes
   hosts: k8s_cluster
     
