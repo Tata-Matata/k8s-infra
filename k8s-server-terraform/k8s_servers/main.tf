@@ -22,6 +22,10 @@ module "controlplane" {
   //But Hetzner also expects server IP that belongs to a subnet of the network
   subnet_cidr = data.terraform_remote_state.core_network.outputs.subnet_cidr
 
+  user_data = templatefile("../modules/hetzner_server/controlplane-user-data.yaml.tftpl", {
+    private_network_cidr = data.terraform_remote_state.core_network.outputs.parent_net_cidr
+  })
+
   // e.g., for 10.50.1.5 use offset 5
   host_offset = each.value
 
@@ -66,6 +70,11 @@ module "worker" {
 
   // same as controlplane
   subnet_cidr = data.terraform_remote_state.core_network.outputs.subnet_cidr
+
+  user_data = templatefile("../modules/hetzner_server/worker-user-data.yaml.tftpl", {
+    private_network_gateway_ip = data.terraform_remote_state.core_network.outputs.subnet_gateway
+    worker_dns_servers         = var.worker_dns_servers
+  })
 
   // e.g., for 10.50.1.5 use offset 5
   host_offset = each.value

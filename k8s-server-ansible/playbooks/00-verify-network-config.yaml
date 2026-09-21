@@ -1,0 +1,97 @@
+# This playbook verifies that the first control plane performs NAT for
+# private-network-only workers and that the worker networking provisioned by
+# Hetzner/Terraform still routes outbound traffic through that gateway.
+
+- name: Verify the first control plane NAT gateway configuration
+  hosts: controlplanes[0]
+  gather_facts: true
+  vars:
+    nat_public_interface: "{{ ansible_facts['default_ipv4']['interface'] }}"
+    nat_private_interface: "{{ (ansible_facts['interfaces'] | select('match', '^en') | reject('equalto', ansible_facts['default_ipv4']['interface']) | list | first) | default('') }}"
+  tasks:
+  - name: Check IPv4 forwarding remains enabled
+    ansible.builtin.command: sysctl -n net.ipv4.ip_forward
+    register: controlplane_ip_forward
+    changed_when: false
+
+  - name: Assert IPv4 forwarding is enabled
+    ansible.builtin.assert:
+      that:
+        - controlplane_ip_forward.stdout | trim == '1'
+      fail_msg: "IPv4 forwarding is not enabled on the NAT gateway control plane"
+
+  - name: Check NAT masquerade rule exists
+    ansible.builtin.command: iptables -t nat -C POSTROUTING -s {{ private_network_cidr }} -o {{ nat_public_interface }} -j MASQUERADE
+    changed_when: false
+
+  - name: Check forward rule from private to public exists
+    ansible.builtin.command: iptables -C FORWARD -i {{ nat_private_interface }} -o {{ nat_public_interface }} -j ACCEPT
+    changed_when: false
+
+  - name: Check return traffic rule from public to private exists
+    ansible.builtin.command: iptables -C FORWARD -i {{ nat_public_interface }} -o {{ nat_private_interface }} -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+    changed_when: false
+
+- name: Verify worker private-network routing through the control plane
+  hosts: workers
+  serial: 1
+  gather_facts: true
+  vars:
+    controlplane_private_gateway_ip: "{{ hostvars[groups['controlplanes'][0]].private_ip | default('') }}"
+  tasks:
+  - name: Detect worker interface that owns ansible_host
+    ansible.builtin.shell: |
+      ip -4 -o addr show | awk '{split($4, a, "/"); if (a[1] == "{{ ansible_host }}") { print $2; exit }}'
+    register: worker_private_interface_detection
+    changed_when: false
+
+  - name: Set detected worker private interface
+    ansible.builtin.set_fact:
+      private_interface: "{{ worker_private_interface_detection.stdout | trim }}"
+
+  - name: Check detected worker private interface
+    ansible.builtin.assert:
+      that:
+        - private_interface | length > 0
+      fail_msg: "Could not determine the worker interface that owns ansible_host={{ ansible_host }}"
+
+  - name: Check control plane private gateway IP from inventory
+    ansible.builtin.assert:
+      that:
+        - controlplane_private_gateway_ip | length > 0
+      fail_msg: "Could not determine the first control plane private IP from inventory/hosts.yaml"
+
+  - name: Check worker default route
+    ansible.builtin.command: ip route show default
+    register: worker_default_route
+    changed_when: false
+
+  - name: Assert worker has a default route on the private interface
+    ansible.builtin.assert:
+      that:
+        - worker_default_route.stdout | trim | length > 0
+        - "'dev ' ~ private_interface in worker_default_route.stdout"
+      fail_msg: "Worker does not have a usable default route on its private interface"
+
+  - name: Check worker can reach the control plane private IP
+    ansible.builtin.command: ping -c 1 -W 3 {{ controlplane_private_gateway_ip }}
+    changed_when: false
+
+  - name: Check worker private interface address
+    ansible.builtin.command: ip -4 -o addr show dev {{ private_interface }}
+    register: worker_private_interface_address
+    changed_when: false
+
+  - name: Assert worker private interface still owns ansible_host
+    ansible.builtin.assert:
+      that:
+        - ansible_host in worker_private_interface_address.stdout
+      fail_msg: "Worker private interface no longer has ansible_host={{ ansible_host }} configured"
+
+  - name: Check worker can reach the internet without DNS
+    ansible.builtin.command: ping -c 1 -W 3 1.1.1.1
+    changed_when: false
+
+  - name: Check worker DNS resolution
+    ansible.builtin.command: getent hosts quay.io
+    changed_when: false

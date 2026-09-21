@@ -1,0 +1,58 @@
+- name: Run Cilium status checks from localhost
+  hosts: controlplanes[0]
+  vars:
+    cilium_cli_binary_path: "{{ cilium_cli_install_dir }}/cilium"
+  tasks:
+  - name: Ensure local kubeconfig exists
+    ansible.builtin.stat:
+      path: "{{ cilium_kubeconfig_local_path }}"
+    register: local_kubeconfig
+    delegate_to: localhost
+
+  - name: Fail if local kubeconfig is missing
+    ansible.builtin.fail:
+      msg: "Local kubeconfig not found at {{ cilium_kubeconfig_local_path }}. Run playbook 42-proxy-to-laptop.yaml first."
+    when: not local_kubeconfig.stat.exists
+
+  - name: Ensure Cilium CLI exists on localhost
+    ansible.builtin.stat:
+      path: "{{ cilium_cli_binary_path }}"
+    register: local_cilium_cli
+    delegate_to: localhost
+
+  - name: Fail if Cilium CLI is missing
+    ansible.builtin.fail:
+      msg: "Cilium CLI not found at {{ cilium_cli_binary_path }}. Run playbook 47-install-cilium-cli-local.yaml first."
+    when: not local_cilium_cli.stat.exists
+
+  - name: Wait for Cilium status to become healthy
+    ansible.builtin.command:
+      cmd: >-
+        {{ cilium_cli_binary_path }} status
+        --wait
+        --wait-duration 10m
+        --kubeconfig {{ cilium_kubeconfig_local_path }}
+    register: cilium_status
+    changed_when: false
+    delegate_to: localhost
+    environment:
+      PATH: "{{ cilium_cli_install_dir }}:{{ lookup('env', 'PATH') }}"
+
+  - name: Show Cilium status
+    ansible.builtin.debug:
+      msg: "{{ cilium_status.stdout_lines }}"
+
+  - name: Check Hubble status through Cilium CLI
+    ansible.builtin.command:
+      cmd: >-
+        {{ cilium_cli_binary_path }} hubble status
+        --kubeconfig {{ cilium_kubeconfig_local_path }}
+    register: hubble_status
+    changed_when: false
+    delegate_to: localhost
+    environment:
+      PATH: "{{ cilium_cli_install_dir }}:{{ lookup('env', 'PATH') }}"
+
+  - name: Show Hubble status
+    ansible.builtin.debug:
+      msg: "{{ hubble_status.stdout_lines }}"

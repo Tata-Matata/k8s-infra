@@ -72,5 +72,11 @@ variable "server_type" {
   default = "cx23"
 }
 
+variable "worker_dns_servers" {
+  description = "Public DNS resolvers configured on private-only worker nodes"
+  type        = list(string)
+  default     = ["1.1.1.1", "1.0.0.1"]
+}
+
 
 

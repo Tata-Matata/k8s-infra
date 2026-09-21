@@ -1,0 +1,85 @@
+- name: Install crictl
+  hosts: k8s_cluster
+  vars:
+    crictl_archive_name: "crictl-{{ crictl_version }}-linux-amd64.tar.gz"
+    crictl_archive_path: "/tmp/{{ crictl_archive_name }}"
+    crictl_download_url: "https://github.com/kubernetes-sigs/cri-tools/releases/download/{{ crictl_version }}/{{ crictl_archive_name }}"
+    crictl_sha256: "sha256:67c983ee8a6bbce73d39a186e633c5fe4f8a70e62171ac3bd92a9c1b2c601670"
+    crictl_binary_path: /usr/local/bin/crictl
+    crictl_config_path: /etc/crictl.yaml
+    crictl_runtime_endpoint: unix:///run/containerd/containerd.sock
+  tasks:
+  - name: Check installed crictl version
+    ansible.builtin.command: crictl --version
+    failed_when: false
+    register: crictl_installed_version
+
+  - name: Check if the installed version is the desired one
+    ansible.builtin.set_fact:
+      install_crictl: "{{ crictl_installed_version.rc != 0 or crictl_version not in crictl_installed_version.stdout }}"
+    failed_when: false
+    changed_when: false
+
+  - name: Log already installed crictl version before installation
+    ansible.builtin.debug:
+      msg:
+        - "installed version response code={{ crictl_installed_version.rc }}"
+        - "installed version={{ crictl_installed_version.stdout }}"
+        - "install_crictl={{ install_crictl }}"
+
+  - name: Install crictl
+    when: install_crictl
+    block:
+    - name: Download crictl archive
+      ansible.builtin.get_url:
+        url: "{{ crictl_download_url }}"
+        dest: "{{ crictl_archive_path }}"
+        mode: '0644'
+        checksum: "{{ crictl_sha256 }}"
+
+    - name: Extract crictl binary
+      ansible.builtin.unarchive:
+        src: "{{ crictl_archive_path }}"
+        dest: /usr/local/bin
+        include:
+          - crictl
+        remote_src: true
+
+    - name: Ensure crictl binary mode is executable
+      ansible.builtin.file:
+        path: "{{ crictl_binary_path }}"
+        mode: '0755'
+
+    - name: Remove downloaded crictl archive
+      ansible.builtin.file:
+        path: "{{ crictl_archive_path }}"
+        state: absent
+
+  - name: Configure crictl to use containerd
+    ansible.builtin.copy:
+      dest: "{{ crictl_config_path }}"
+      mode: '0644'
+      owner: root
+      group: root
+      content: |
+        runtime-endpoint: {{ crictl_runtime_endpoint }}
+        image-endpoint: {{ crictl_runtime_endpoint }}
+        timeout: 10
+        debug: false
+
+  - name: Verify crictl after installation
+    ansible.builtin.command: crictl --version
+    register: crictl_installed
+    changed_when: false
+
+  - name: Log crictl version after installation
+    ansible.builtin.debug:
+      msg:
+        - "installed version response code={{ crictl_installed.rc }}"
+        - "installed version={{ crictl_installed.stdout }}"
+
+  - name: Verify crictl version
+    ansible.builtin.assert:
+      that:
+        - crictl_version in crictl_installed.stdout
+      fail_msg: "crictl is not the expected version"

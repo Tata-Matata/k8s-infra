@@ -1,0 +1,63 @@
+- name: Install Helm on localhost for cluster administration
+  hosts: controlplanes[0]
+  vars:
+    helm_archive_name: "helm-v{{ cilium_helm_version }}-{{ cilium_helm_arch }}.tar.gz"
+    helm_archive_path: "{{ cilium_helm_tmp_dir }}/{{ helm_archive_name }}"
+    helm_extract_dir: "{{ cilium_helm_tmp_dir }}/{{ cilium_helm_arch }}"
+    helm_binary_path: "{{ cilium_cli_install_dir }}/helm"
+  tasks:
+  - name: Ensure local Helm install dir exists
+    ansible.builtin.file:
+      path: "{{ cilium_cli_install_dir }}"
+      state: directory
+      mode: '0755'
+    delegate_to: localhost
+
+  - name: Ensure local Helm temp dir exists
+    ansible.builtin.file:
+      path: "{{ cilium_helm_tmp_dir }}"
+      state: directory
+      mode: '0700'
+    delegate_to: localhost
+
+  - name: Download Helm archive to localhost
+    ansible.builtin.get_url:
+      url: "{{ cilium_helm_download_url }}"
+      dest: "{{ helm_archive_path }}"
+      mode: '0644'
+      checksum: "{{ cilium_helm_checksum }}"
+    delegate_to: localhost
+
+  - name: Unpack Helm archive on localhost
+    ansible.builtin.unarchive:
+      src: "{{ helm_archive_path }}"
+      dest: "{{ cilium_helm_tmp_dir }}"
+      remote_src: true
+    delegate_to: localhost
+
+  - name: Install Helm binary on localhost
+    ansible.builtin.copy:
+      src: "{{ helm_extract_dir }}/helm"
+      dest: "{{ helm_binary_path }}"
+      remote_src: true
+      mode: '0755'
+    delegate_to: localhost
+
+  - name: Verify Helm is installed on localhost
+    ansible.builtin.command:
+      cmd: "{{ helm_binary_path }} version --short"
+    register: helm_check
+    changed_when: false
+    delegate_to: localhost
+    environment:
+      PATH: "{{ cilium_cli_install_dir }}:{{ lookup('env', 'PATH') }}"
+
+  - name: Show Helm version
+    ansible.builtin.debug:
+      msg: "{{ helm_check.stdout }}"
+
+  - name: Verify Helm version
+    ansible.builtin.assert:
+      that:
+        - "'v' ~ cilium_helm_version in helm_check.stdout"
+      fail_msg: "Helm is not the expected version"

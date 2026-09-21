@@ -62,7 +62,7 @@ Workers are private-only Hetzner VMs. That means:
 The NAT setup has two parts:
 
 1. Terraform configures the Hetzner-side route so private worker traffic is sent to `controlplane-1`.
-2. Ansible configures the Linux-side NAT: forwarding and masquerading on `controlplane-1`, plus route and DNS on workers.
+2. Ansible configures the Linux-side NAT on `controlplane-1`. Worker private-interface addressing and routing stay under Hetzner/Terraform provisioning and are verified separately.
 
 
 ## Ansible
@@ -70,6 +70,7 @@ The NAT setup has two parts:
 Suggested order for the current playbooks:
 
 1. private network egress / NAT setup
+2. verify private network egress / NAT setup
 
 
 The NAT-related Ansible step should run before package installation.

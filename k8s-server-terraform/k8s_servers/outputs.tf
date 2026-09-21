@@ -1,12 +1,7 @@
-## for retrieving the list of all available images in Hetzner Terraform 
-## terraform plan, then terraform output available_images
-output "available_images" {
-  value = [
-    for img in data.hcloud_images.all_x86.images : {
-      name       = img.name
-      os_flavor  = img.os_flavor
-      os_version = img.os_version
-      arch       = img.architecture
-    }
-  ]
+output "controlplane_public_ipv4_addresses" {
+	description = "Public IPv4 addresses of control plane nodes keyed by host name"
+	value = {
+		for name, server in module.controlplane :
+		name => server.public_ipv4_address
+	}
 }

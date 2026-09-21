@@ -21,7 +21,7 @@ resource "hcloud_server" "server" {
 
 
 
-  user_data = local.effective_user_data
+  user_data = var.user_data != "" ? var.user_data : null
 
   /* //remove in case of recovery
   lifecycle {

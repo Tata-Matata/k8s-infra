@@ -1,0 +1,36 @@
+#cloud-config
+# This worker-only cloud-init fragment writes the Hetzner private-network
+# netplan file and adds a persistent default route via the Hetzner-defined
+# private subnet gateway (pre-configured by Hetzner on the OS level of private VMs).
+# This way, not only the traffic sent to the private network goes through this gateway
+# but egress traffic to any destination does. So a request say to Google will reach
+# this gateway, then the hcloud_network_route that we explicitly declared for 0.0.0.0/0
+# forwards it to the control plane private IP. The control plane then performs
+# Linux NAT to the public internet (this part is configured in cloud-init on the control plane).
+# Worker DNS is set explicitly because Hetzner's private-network DHCP lease does
+# not provide upstream resolvers on these private-only nodes.
+write_files:
+  - path: /etc/netplan/60-hcloud-private-network.yaml
+    permissions: "0600"
+    content: |
+      network:
+        version: 2
+        ethernets:
+          # Extend Hetzner's cloud-init definition for the private NIC directly
+          # so networkd applies the default route to the active interface.
+          enp7s0:
+            dhcp4: true
+            routes:
+              - to: 0.0.0.0/0
+                # Hetzner-managed private subnet gateway, not the control plane NAT IP.
+                via: ${private_network_gateway_ip}
+                on-link: true
+            nameservers:
+              addresses:
+%{ for dns_server in worker_dns_servers ~}
+                - ${dns_server}
+%{ endfor ~}
+            optional: true
+runcmd:
+  - netplan generate
+  - netplan apply

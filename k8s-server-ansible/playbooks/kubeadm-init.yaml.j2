@@ -1,7 +1,9 @@
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: InitConfiguration
+skipPhases:
+  - addon/kube-proxy
 localAPIEndpoint:
-  advertiseAddress: "{{ ansible_facts['default_ipv4']['address'] }}"
+  advertiseAddress: "{{ kubeadm_api_advertise_address }}"
   bindPort: 6443
 nodeRegistration:
   criSocket: "unix:///run/containerd/containerd.sock"

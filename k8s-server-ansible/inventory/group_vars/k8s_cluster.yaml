@@ -1,25 +1,46 @@
 k8s_version: "1.36"
-k8s_full_version: "{{ k8s_version }}.1"
+k8s_patch_version: "4"
+k8s_full_version: "{{ k8s_version }}.{{ k8s_patch_version }}"
 kubeconfig_path: /etc/kubernetes/admin.conf
-crictl_version: "v1.30.0"
+crictl_version: "v1.37.0"
 private_network_cidr: "10.50.0.0/16"
-private_network_gateway_ip: "10.50.0.1"
-private_nat_nameservers:
-  - "185.12.64.1"
-  - "185.12.64.2"
-# Set this to a stable DNS name or VIP with port 6443 when you have more than
-# one control plane, for example "cp.k8s.example.com:6443".
-
-# after the first control plane runs kubeadm init, 
-# the other control planes should join through a stable API endpoint, not through the first node’s individual IP. 
-# Leave it empty for a single-control-plane cluster.
+# Set this to a stable private DNS name or VIP with port 6443 when you have
+# more than one control plane, for example "cp.k8s.example.com:6443".
+#
+# After the first control plane runs kubeadm init, the other control planes
+# should join through a stable API endpoint, not through the first node's
+# individual IP. Leave it empty for a single-control-plane cluster.
 control_plane_endpoint: ""
 
-# for Calico
+# cluster networking
 pod_network_cidr: "192.168.0.0/16"
-calico_version: "3.32.0"
-calico_ns: calicostart
-calico_tmp_folder: /tmp/calico
+
+# Cilium
+cilium_version: "1.20.2"
+cilium_namespace: kube-system
+cilium_routing_mode: tunnel
+cilium_tunnel_protocol: vxlan
+cilium_tunnel_port: 8472
+cilium_helm_version: "3.22.0"
+cilium_helm_arch: linux-amd64
+cilium_helm_download_url: "https://get.helm.sh/helm-v{{ cilium_helm_version }}-{{ cilium_helm_arch }}.tar.gz"
+cilium_helm_checksum: "sha256:1e4ab49e429626cf6c6958d914248b78c9730803c2751b87627e171dc800e7bb"
+cilium_helm_tmp_dir: /tmp/helm
+cilium_cli_install_dir: "/home/tati/.local/bin"
+cilium_kubeconfig_local_path: "/home/tati/kubernetes/hetzner-playground/admin.conf"
+cilium_release_name: cilium
+cilium_cli_version: "0.20.0"
+cilium_cli_archive_name: "cilium-linux-amd64.tar.gz"
+cilium_cli_download_url: "https://github.com/cilium/cilium-cli/releases/download/v{{ cilium_cli_version }}/{{ cilium_cli_archive_name }}"
+cilium_hubble_enabled: true
+cilium_hubble_relay_enabled: true
+cilium_hubble_ui_enabled: true
+# Leave empty to autodetect the first control plane's private IP. Set this to a
+# stable private API endpoint later when you add more control planes.
+cilium_k8s_service_host: ""
+# Leave empty to inherit the port from control_plane_endpoint, otherwise 6443 is
+# used by default.
+cilium_k8s_service_port: ""
 
 # CIS CAT Lite
 cis_cat_install_dir: /opt/CIS-CAT-Lite

@@ -8,7 +8,7 @@
     adminconf_local_machine_folder: "{{  local_home_dir }}/kubernetes/hetzner-playground"
     adminconf_local_machine_path: "{{ adminconf_local_machine_folder }}/admin.conf"
     kubectl_download_url: "https://dl.k8s.io/v{{  k8s_full_version }}/bin/linux/amd64/kubectl"
-    kubectl_checksum: "sha256:629d3f410e09bf49b64ae7079f7f0bda1191efed311f7d37fdbab0ad5b0ec2b7"
+    kubectl_checksum: "sha256:8b8f088da2dab964f853b38464033b1be15ede2839eca751482357c45abdd05a"
     kubectl_target_folder: "{{  local_home_dir }}/.local/bin"
   tasks:
   - name: Make sure folder for admin.conf exists on localhost
@@ -25,6 +25,13 @@
      src: "{{  adminconf_controlplane_path }}"
      dest: "{{  adminconf_local_machine_path }}"
      flat: true
+
+  - name: Rewrite local kubeconfig server endpoint for laptop access
+    ansible.builtin.replace:
+      path: "{{ adminconf_local_machine_path }}"
+      regexp: 'server: https://[^\s]+'
+      replace: 'server: https://{{ ansible_host }}:6443'
+    delegate_to: localhost
   
   - name: Ensure local bin directory exists
     ansible.builtin.file:

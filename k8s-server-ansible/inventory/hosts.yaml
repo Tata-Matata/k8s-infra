@@ -4,6 +4,7 @@ all:
       hosts:
         controlplane-1:
           ansible_host: 78.46.216.59
+          private_ip: 10.50.1.101
     workers:
       hosts:
         worker-1:

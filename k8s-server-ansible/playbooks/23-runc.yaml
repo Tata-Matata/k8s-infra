@@ -1,11 +1,11 @@
 - name: Install runc
   hosts: k8s_cluster
   vars:
-    runc_version: "1.4.2"
+    runc_version: "1.5.1"
     tmp_folder: /tmp/runc
     filename: "runc.amd64"
     full_installer_path: "{{ tmp_folder }}/{{ filename }}"
-    runc_sha256: "sha256:ac8a90f9e225bb9322189937b230cdc5478d5753f0e31e1bda98a5cf06bd9539"
+    runc_sha256: "sha256:177df879d50c913eb205e898d5c1c05a18f574053c0ce5524c471208eaf06f6f"
     download_url: "https://github.com/opencontainers/runc/releases/download/v{{runc_version}}/runc.amd64"
   tasks:
   - name: Check installed runc version

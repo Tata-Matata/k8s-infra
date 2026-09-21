@@ -1,11 +1,11 @@
 - name: Install containerd
   hosts: k8s_cluster
   vars:
-    containerd_version: "2.1.8"
+    containerd_version: "2.3.5"
     tmp_folder: /tmp/containterd
     filename: "containerd-{{ containerd_version }}-linux-amd64.tar.gz"
     full_archivepath: "{{ tmp_folder }}/{{ filename }}"
-    containerd_sha256: "sha256:ad2ed5bca4839109ec271e3ee0285abf36bec450956c5d59a31f1a980e8d71a9"
+    containerd_sha256: "sha256:2f0a095a71e3262d0d91ff0e50e2e4ae73c3866c4d1ff6a15f341097fba3dd44"
     download_url: "https://github.com/containerd/containerd/releases/download/v{{ containerd_version }}/{{ filename }}"
   tasks:
   - name: Check installed containerd version

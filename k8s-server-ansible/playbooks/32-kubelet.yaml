@@ -1,6 +1,16 @@
 - name: Install and enable kubelet
   hosts: k8s_cluster
-    
+  gather_facts: true
+  vars:
+    kubelet_node_ip_interface: >-
+      {{
+        ((inventory_hostname in groups['controlplanes'])
+          | ternary(
+              (ansible_interfaces | select('match', '^en') | reject('equalto', ansible_default_ipv4.interface) | list | first),
+              (ansible_interfaces | select('match', '^en') | list | first)
+          ))
+          | default(ansible_default_ipv4.interface)
+      }}
   tasks:
   # Update apt package index 
   - name: Update apt package index
@@ -18,11 +28,37 @@
       name: kubelet
       selection: hold
 
+  - name: Detect kubelet node IP on chosen interface
+    ansible.builtin.shell: "ip -4 -o addr show dev {{ kubelet_node_ip_interface }} | awk '{print $4}' | cut -d/ -f1"
+    register: kubelet_node_ip_detected
+    changed_when: false
+
+  - name: Persist kubelet node IP
+    ansible.builtin.lineinfile:
+      path: /etc/default/kubelet
+      regexp: '^KUBELET_EXTRA_ARGS='
+      line: 'KUBELET_EXTRA_ARGS="--node-ip={{ kubelet_node_ip_detected.stdout | trim }}"'
+      create: true
+      mode: '0644'
+      owner: root
+      group: root
+    register: kubelet_extra_args
+
   - name: Enable kubelet service
     ansible.builtin.systemd_service:
       name: kubelet
       enabled: true
       state: started
+      daemon_reload: true
+    when: not kubelet_extra_args.changed
+
+  - name: Restart kubelet to apply node IP
+    ansible.builtin.systemd_service:
+      name: kubelet
+      enabled: true
+      state: restarted
+      daemon_reload: true
+    when: kubelet_extra_args.changed
   
   ## POST verification
 
