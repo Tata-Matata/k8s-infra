@@ -1,0 +1,26 @@
+## keep the default kubeadm behavior so workload pods do not schedule on the
+## control plane unless they explicitly tolerate the taint
+- name: Ensure NoSchedule taint on controlplane
+  hosts: controlplanes[0]
+  tasks:
+  
+  - name: Ensure controlplane taint is present
+    ansible.builtin.command: 
+     cmd: kubectl taint nodes {{ groups['controlplanes'][0] }} node-role.kubernetes.io/control-plane=:NoSchedule
+    register: taint_controlplane
+    failed_when: >-
+      taint_controlplane.rc != 0 and
+      'already has' not in taint_controlplane.stderr
+    changed_when: "'tainted' in taint_controlplane.stdout"
+
+  - name: Log taints
+    ansible.builtin.command:
+      cmd: kubectl get node {{ groups['controlplanes'][0] }} -o jsonpath={.spec.taints[*].key}
+    register: controlplane_taints
+    changed_when: false
+
+  - name: Check taint exists on controlplane node
+    ansible.builtin.assert:
+      that:
+        - "'node-role.kubernetes.io/control-plane' in controlplane_taints.stdout"
+      fail_msg: "Control plane node is missing the NoSchedule taint"

@@ -32,13 +32,20 @@
   hosts: workers
   gather_facts: false
   tasks:
+  - name: Check whether worker already joined the cluster
+    ansible.builtin.stat:
+      path: /etc/kubernetes/kubelet.conf
+    register: worker_kubelet_conf
+
   - name: Stop kubelet service before worker join
     ansible.builtin.systemd_service:
       name: kubelet
       enabled: true
       state: stopped
+    when: not worker_kubelet_conf.stat.exists
 
   - name: Join node as worker
     ansible.builtin.command: "{{ hostvars['localhost'].worker_join_command }}"
     args:
       creates: /etc/kubernetes/kubelet.conf
+    when: not worker_kubelet_conf.stat.exists
