@@ -53,55 +53,6 @@
       group: root
       mode: '0600'
 
-  - name: Create worker join command
-    ansible.builtin.command: kubeadm token create --print-join-command
-    register: worker_join_command_raw
-    changed_when: false
-
-  - name: Upload control plane certificates
-    ansible.builtin.command: kubeadm init phase upload-certs --upload-certs
-    register: upload_certs_output
-    changed_when: false
-
-  - name: Persist join data on localhost
-    ansible.builtin.set_fact:
-      worker_join_command: "{{ worker_join_command_raw.stdout }}"
-      controlplane_join_command: "{{ worker_join_command_raw.stdout }} --control-plane --certificate-key {{ upload_certs_output.stdout_lines | last | trim }}"
-    delegate_to: localhost
-    delegate_facts: true
-
   - name: Check kubectl on first control plane
     ansible.builtin.command: kubectl get nodes
     changed_when: false
-
-- name: Join additional control planes
-  hosts: controlplanes
-  gather_facts: false
-  tasks:
-  - name: Stop kubelet service before control plane join
-    ansible.builtin.systemd_service:
-      name: kubelet
-      enabled: true
-      state: stopped
-    when: inventory_hostname != groups['controlplanes'][0]
-
-  - name: Join node as additional control plane
-    ansible.builtin.command: "{{ hostvars['localhost'].controlplane_join_command }}"
-    args:
-      creates: /etc/kubernetes/admin.conf
-    when: inventory_hostname != groups['controlplanes'][0]
-
-- name: Join worker nodes
-  hosts: workers
-  gather_facts: false
-  tasks:
-  - name: Stop kubelet service before worker join
-    ansible.builtin.systemd_service:
-      name: kubelet
-      enabled: true
-      state: stopped
-
-  - name: Join node as worker
-    ansible.builtin.command: "{{ hostvars['localhost'].worker_join_command }}"
-    args:
-      creates: /etc/kubernetes/kubelet.conf

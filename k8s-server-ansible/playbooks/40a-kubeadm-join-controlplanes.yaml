@@ -1,0 +1,58 @@
+- name: Prepare additional control plane join command
+  hosts: controlplanes[0]
+  gather_facts: false
+  vars:
+    admin_conf_path: /etc/kubernetes/admin.conf
+  tasks:
+  - name: Require initialized first control plane
+    ansible.builtin.stat:
+      path: "{{ admin_conf_path }}"
+    register: admin_conf_stat
+
+  - name: Fail if first control plane is not initialized
+    ansible.builtin.assert:
+      that:
+        - admin_conf_stat.stat.exists
+      fail_msg: >-
+        /etc/kubernetes/admin.conf is missing on the first control plane.
+        Run 40-kubeadm-init.yaml before joining additional control planes.
+
+  - name: Create base join command
+    ansible.builtin.command: kubeadm token create --print-join-command --kubeconfig /etc/kubernetes/admin.conf
+    register: worker_join_command_raw
+    changed_when: false
+
+  # kubeadm uploads shared control-plane certificates into the cluster and
+  # returns a temporary certificate key. Additional control planes use that
+  # key with `kubeadm join --control-plane` instead of requiring manual
+  # certificate distribution.
+  - name: Upload control plane certificates
+    ansible.builtin.command: kubeadm init phase upload-certs --upload-certs --kubeconfig /etc/kubernetes/admin.conf
+    register: upload_certs_output
+    changed_when: false
+    retries: 5
+    delay: 15
+    until: upload_certs_output.rc == 0
+
+  - name: Persist control plane join data on localhost
+    ansible.builtin.set_fact:
+      controlplane_join_command: "{{ worker_join_command_raw.stdout }} --control-plane --certificate-key {{ upload_certs_output.stdout_lines | last | trim }}"
+    delegate_to: localhost
+    delegate_facts: true
+
+- name: Join additional control planes
+  hosts: controlplanes
+  gather_facts: false
+  tasks:
+  - name: Stop kubelet service before control plane join
+    ansible.builtin.systemd_service:
+      name: kubelet
+      enabled: true
+      state: stopped
+    when: inventory_hostname != groups['controlplanes'][0]
+
+  - name: Join node as additional control plane
+    ansible.builtin.command: "{{ hostvars['localhost'].controlplane_join_command }}"
+    args:
+      creates: /etc/kubernetes/admin.conf
+    when: inventory_hostname != groups['controlplanes'][0]

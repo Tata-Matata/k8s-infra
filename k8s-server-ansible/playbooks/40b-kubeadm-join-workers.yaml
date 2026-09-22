@@ -1,0 +1,44 @@
+- name: Prepare worker join command
+  hosts: controlplanes[0]
+  gather_facts: false
+  vars:
+    admin_conf_path: /etc/kubernetes/admin.conf
+  tasks:
+  - name: Require initialized first control plane
+    ansible.builtin.stat:
+      path: "{{ admin_conf_path }}"
+    register: admin_conf_stat
+
+  - name: Fail if first control plane is not initialized
+    ansible.builtin.assert:
+      that:
+        - admin_conf_stat.stat.exists
+      fail_msg: >-
+        /etc/kubernetes/admin.conf is missing on the first control plane.
+        Run 40-kubeadm-init.yaml before joining workers.
+
+  - name: Create worker join command
+    ansible.builtin.command: kubeadm token create --print-join-command --kubeconfig /etc/kubernetes/admin.conf
+    register: worker_join_command_raw
+    changed_when: false
+
+  - name: Persist worker join data on localhost
+    ansible.builtin.set_fact:
+      worker_join_command: "{{ worker_join_command_raw.stdout }}"
+    delegate_to: localhost
+    delegate_facts: true
+
+- name: Join worker nodes
+  hosts: workers
+  gather_facts: false
+  tasks:
+  - name: Stop kubelet service before worker join
+    ansible.builtin.systemd_service:
+      name: kubelet
+      enabled: true
+      state: stopped
+
+  - name: Join node as worker
+    ansible.builtin.command: "{{ hostvars['localhost'].worker_join_command }}"
+    args:
+      creates: /etc/kubernetes/kubelet.conf
