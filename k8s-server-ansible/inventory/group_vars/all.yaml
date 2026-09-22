@@ -1,1 +1,9 @@
 ansible_private_key_file: /home/tati/.ssh/k8s-infra/id_ed25519
+
+# Helm
+helm_version: "3.22.0"
+helm_arch: linux-amd64
+helm_download_url: "https://get.helm.sh/helm-v{{ helm_version }}-{{ helm_arch }}.tar.gz"
+helm_checksum: "sha256:1e4ab49e429626cf6c6958d914248b78c9730803c2751b87627e171dc800e7bb"
+helm_tmp_dir: /tmp/helm
+helm_install_dir: "/home/tati/.local/bin"

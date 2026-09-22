@@ -2,7 +2,7 @@
   hosts: controlplanes[0]
   gather_facts: true
   vars:
-    helm_binary_path: "{{ cilium_cli_install_dir }}/helm"
+    helm_binary_path: "{{ helm_install_dir }}/helm"
     cilium_values_file: /tmp/cilium-values.yaml
     cilium_controlplane_private_interface: >-
       {{
@@ -33,7 +33,7 @@
 
   - name: Fail if Helm binary is missing
     ansible.builtin.fail:
-      msg: "Helm not found at {{ helm_binary_path }}. Run playbook 43-install-helm-local.yaml first."
+      msg: "Helm not found at {{ helm_binary_path }}. Run playbook 60-install-helm-local.yaml first."
     when: not local_helm.stat.exists
 
   - name: Fail if no private API endpoint can be derived for Cilium
@@ -134,7 +134,7 @@
     delegate_to: localhost
     changed_when: true
     environment:
-      PATH: "{{ cilium_cli_install_dir }}:{{ lookup('env', 'PATH') }}"
+      PATH: "{{ helm_install_dir }}:{{ lookup('env', 'PATH') }}"
 
   - name: Show Cilium Helm result
     ansible.builtin.debug:

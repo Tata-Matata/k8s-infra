@@ -29,11 +29,6 @@ cilium_namespace: kube-system
 cilium_routing_mode: tunnel
 cilium_tunnel_protocol: vxlan
 cilium_tunnel_port: 8472
-cilium_helm_version: "3.22.0"
-cilium_helm_arch: linux-amd64
-cilium_helm_download_url: "https://get.helm.sh/helm-v{{ cilium_helm_version }}-{{ cilium_helm_arch }}.tar.gz"
-cilium_helm_checksum: "sha256:1e4ab49e429626cf6c6958d914248b78c9730803c2751b87627e171dc800e7bb"
-cilium_helm_tmp_dir: /tmp/helm
 cilium_cli_install_dir: "/home/tati/.local/bin"
 cilium_kubeconfig_local_path: "/home/tati/kubernetes/hetzner-playground/admin.conf"
 cilium_release_name: cilium
