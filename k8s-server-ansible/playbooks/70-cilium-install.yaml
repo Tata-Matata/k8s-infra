@@ -1,3 +1,5 @@
+# Install Cilium from the laptop with Helm after the control plane is ready and
+# the local admin kubeconfig and Helm binary are in place.
 - name: Install Cilium with VXLAN via Helm from localhost
   hosts: controlplanes[0]
   gather_facts: false
@@ -5,6 +7,10 @@
     helm_binary_path: "{{ helm_install_dir }}/helm"
     cilium_values_file: /tmp/cilium-values.yaml
   tasks:
+  - name: Log playbook header
+    ansible.builtin.debug:
+      msg: "Playbook header: install Cilium from the laptop with Helm"
+
   - name: Ensure local kubeconfig exists
     ansible.builtin.stat:
       path: "{{ cilium_kubeconfig_local_path }}"

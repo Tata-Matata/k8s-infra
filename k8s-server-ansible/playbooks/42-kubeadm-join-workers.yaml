@@ -1,7 +1,13 @@
+# Generate a fresh worker join command on the first control plane and join any
+# worker nodes that are not already part of the cluster.
 - name: Prepare worker join command
   hosts: controlplanes[0]
   gather_facts: false
   tasks:
+  - name: Log playbook header
+    ansible.builtin.debug:
+      msg: "Playbook header: prepare worker joins and add missing workers"
+
   - name: Require initialized first control plane
     ansible.builtin.stat:
       path: "{{ kubeconfig_path }}"

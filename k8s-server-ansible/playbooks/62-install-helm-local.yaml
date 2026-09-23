@@ -1,3 +1,5 @@
+# Install Helm on the laptop so cluster add-ons can be managed locally against
+# the fetched admin kubeconfig.
 - name: Install Helm on localhost for cluster administration
   hosts: localhost
   connection: local
@@ -8,6 +10,10 @@
     helm_extract_dir: "{{ helm_tmp_dir }}/{{ helm_arch }}"
     helm_binary_path: "{{ helm_install_dir }}/helm"
   tasks:
+  - name: Log playbook header
+    ansible.builtin.debug:
+      msg: "Playbook header: install Helm locally for cluster administration"
+
   - name: Ensure local Helm install dir exists
     ansible.builtin.file:
       path: "{{ helm_install_dir }}"

@@ -1,3 +1,5 @@
+# Run the Cilium connectivity test suite from the laptop to exercise datapath
+# behavior and policy handling with generated in-cluster test workloads.
 - name: Run Cilium connectivity test from localhost
   hosts: localhost
   connection: local
@@ -5,6 +7,10 @@
   vars:
     cilium_cli_binary_path: "{{ cilium_cli_install_dir }}/cilium"
   tasks:
+  - name: Log playbook header
+    ansible.builtin.debug:
+      msg: "Playbook header: run the Cilium connectivity test suite"
+
   - name: Ensure local kubeconfig exists
     ansible.builtin.stat:
       path: "{{ local_kubeconfig_path }}"
@@ -25,7 +31,7 @@
       msg: "Cilium CLI not found at {{ cilium_cli_binary_path }}. Run playbook 73-install-cilium-cli-local.yaml first."
     when: not local_cilium_cli.stat.exists
 
-  - name: Run Cilium connectivity test
+  - name: Run (LONG!) Cilium connectivity test
     ansible.builtin.command:
       cmd: >-
         {{ cilium_cli_binary_path }} connectivity test

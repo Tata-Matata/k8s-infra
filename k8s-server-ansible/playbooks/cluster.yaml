@@ -1,0 +1,26 @@
+# Run the full cluster workflow in the intended order, from host preparation
+# through Kubernetes bootstrap and Cilium validation.
+- import_playbook: 00-verify-network-config.yaml
+- import_playbook: 21-containerd.yaml
+- import_playbook: 22-containerd-service.yaml
+- import_playbook: 23-runc.yaml
+- import_playbook: 24-crictl.yaml
+- import_playbook: 30-swap-memory-config.yaml
+- import_playbook: 31-apt-k8s-repo-config.yaml
+- import_playbook: 32-kubelet.yaml
+- import_playbook: 33-kubeadm.yaml
+- import_playbook: 34-kubectl.yaml
+- import_playbook: 35-enable-bridge-networking-for-iptables-cni.yaml
+- import_playbook: 40-kubeadm-init.yaml
+- import_playbook: 41-kubeadm-join-controlplanes.yaml
+- import_playbook: 42-kubeadm-join-workers.yaml
+- import_playbook: 43-prevent-schedule-on-controlplanes.yaml
+- import_playbook: 60-kubeconfig-on-laptop.yaml
+- import_playbook: 61-install-kubectl-local.yaml
+- import_playbook: 62-install-helm-local.yaml
+- import_playbook: 70-cilium-install.yaml
+- import_playbook: 71-cilium-verify.yaml
+- import_playbook: 72-cilium-restart-unmanaged-pods.yaml
+- import_playbook: 73-install-cilium-cli-local.yaml
+- import_playbook: 74-cilium-status.yaml
+- import_playbook: 75-cilium-connectivity-test.yaml

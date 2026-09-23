@@ -1,3 +1,4 @@
+# Install the low-level OCI runtime used by containerd to launch containers.
 - name: Install runc
   hosts: k8s_cluster
   vars:
@@ -7,6 +8,10 @@
     runc_sha256: "sha256:177df879d50c913eb205e898d5c1c05a18f574053c0ce5524c471208eaf06f6f"
     download_url: "https://github.com/opencontainers/runc/releases/download/v{{runc_version}}/runc.amd64"
   tasks:
+  - name: Log playbook header
+    ansible.builtin.debug:
+      msg: "Playbook header: install runc"
+
   - name: Check installed runc version
     ansible.builtin.command: runc --version
     failed_when: false

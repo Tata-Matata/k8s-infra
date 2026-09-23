@@ -1,7 +1,13 @@
+# Generate fresh join data on the first control plane and use it to add any
+# additional control-plane nodes declared in inventory.
 - name: Prepare additional control plane join command
   hosts: controlplanes[0]
   gather_facts: false
   tasks:
+  - name: Log playbook header
+    ansible.builtin.debug:
+      msg: "Playbook header: prepare and run joins for additional control-plane nodes"
+
   - name: Require initialized first control plane
     ansible.builtin.stat:
       path: "{{ kubeconfig_path }}"

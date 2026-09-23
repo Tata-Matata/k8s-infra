@@ -1,7 +1,13 @@
+# Bootstrap the first control plane with the rendered kubeadm configuration and
+# verify that the new API server responds locally.
 - name: Initialize the first control plane
   hosts: controlplanes[0]
   gather_facts: true
   tasks:
+  - name: Log playbook header
+    ansible.builtin.debug:
+      msg: "Playbook header: bootstrap the first control plane"
+
   - name: Require private_ip in inventory for the first control plane
     ansible.builtin.assert:
       that:

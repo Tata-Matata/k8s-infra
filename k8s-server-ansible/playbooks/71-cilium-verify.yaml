@@ -1,7 +1,13 @@
+# Verify the deployed Cilium control-plane resources and confirm that kube-
+# proxy replacement is active from the first control-plane node.
 - name: Verify Cilium installation from control plane
   hosts: controlplanes[0]
   gather_facts: false
   tasks:
+  - name: Log playbook header
+    ansible.builtin.debug:
+      msg: "Playbook header: verify Cilium resources and kube-proxy replacement"
+
   - name: Check Cilium pods in kube-system
     ansible.builtin.command:
       cmd: >-
@@ -116,6 +122,9 @@
         exec ds/cilium -- cilium-dbg status --verbose
     register: cilium_dbg_status
     changed_when: false
+    retries: 5
+    delay: 10
+    until: cilium_dbg_status.rc == 0
 
   - name: Verify kube-proxy replacement is enabled
     ansible.builtin.assert:

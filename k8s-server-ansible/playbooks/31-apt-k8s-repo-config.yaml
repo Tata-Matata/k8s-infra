@@ -1,7 +1,13 @@
-- name: Prepare apt repository
+# Configure the upstream Kubernetes apt repository and signing key so kubelet,
+# kubeadm, and kubectl can be installed from the pinned version stream.
+- name: Configure the Kubernetes apt repository on cluster nodes
   hosts: k8s_cluster
     
   tasks:
+  - name: Log playbook header
+    ansible.builtin.debug:
+      msg: "Playbook header: configure the Kubernetes apt repository"
+
   # Update apt package index 
   - name: Update apt package index
     ansible.builtin.apt:

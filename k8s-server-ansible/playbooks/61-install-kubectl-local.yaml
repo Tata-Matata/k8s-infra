@@ -1,3 +1,5 @@
+# Install kubectl on the laptop and verify that it can talk to the cluster with
+# the fetched admin kubeconfig.
 - name: Install kubectl on localhost
   hosts: localhost
   connection: local
@@ -6,6 +8,10 @@
     kubectl_binary_path: "{{ kubectl_local_install_dir }}/kubectl"
     adminconf_local_machine_path: "{{ local_kubeconfig_path }}"
   tasks:
+  - name: Log playbook header
+    ansible.builtin.debug:
+      msg: "Playbook header: install local kubectl and verify cluster access"
+
   - name: Ensure local kubectl bin directory exists
     ansible.builtin.file:
       path: "{{ kubectl_local_install_dir }}"

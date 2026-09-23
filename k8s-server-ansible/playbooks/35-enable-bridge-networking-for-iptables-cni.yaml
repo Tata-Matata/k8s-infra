@@ -7,6 +7,10 @@
   hosts: k8s_cluster
     
   tasks:
+  - name: Log playbook header
+    ansible.builtin.debug:
+      msg: "Playbook header: configure bridge networking compatibility sysctls"
+
   
 
   ## setting sysctls like net.bridge.bridge-nf-call-iptables only works if the bridge netfilter functionality is available

@@ -14,6 +14,10 @@
    - tfsec or checkov for security/policy checks.
    - terratest or native terraform test for deeper module/integration testing.
   
-  6. static analysis
+6. static analysis
    - tfsec, checkov, terrascan, kics
    - gitleaks
+
+7. CIS-CAT Lite or OpenSCAP in CI pipeline - at which stage? fail on non-waived findings, implement fixes in Ansible? publish report as artifact. on PR, before merge? CHECK LICENSE before using in the pipeline
+
+8. overall script to run all Terraform configs  

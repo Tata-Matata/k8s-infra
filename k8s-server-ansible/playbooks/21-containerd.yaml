@@ -1,3 +1,5 @@
+# Install the containerd runtime binary on all Kubernetes nodes before kubelet
+# and kubeadm are configured.
 - name: Install containerd
   hosts: k8s_cluster
   vars:
@@ -7,6 +9,10 @@
     containerd_sha256: "sha256:2f0a095a71e3262d0d91ff0e50e2e4ae73c3866c4d1ff6a15f341097fba3dd44"
     download_url: "https://github.com/containerd/containerd/releases/download/v{{ containerd_version }}/{{ filename }}"
   tasks:
+  - name: Log playbook header
+    ansible.builtin.debug:
+      msg: "Playbook header: install containerd"
+
   - name: Check installed containerd version
     ansible.builtin.command: containerd --version
     failed_when: false

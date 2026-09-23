@@ -1,9 +1,15 @@
+# Install kubelet and pin each node to its inventory-defined private address so
+# Kubernetes uses the intended internal interface.
 - name: Install and enable kubelet
   hosts: k8s_cluster
   gather_facts: true
   vars:
     kubelet_node_ip: "{{ private_ip }}"
   tasks:
+  - name: Log playbook header
+    ansible.builtin.debug:
+      msg: "Playbook header: install kubelet and set the node private IP"
+
   - name: Require private_ip in inventory for kubelet node IP
     ansible.builtin.assert:
       that:

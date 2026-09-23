@@ -1,8 +1,12 @@
-## keep the default kubeadm behavior so workload pods do not schedule on the
-## control plane unless they explicitly tolerate the taint
-- name: Ensure NoSchedule taint on controlplane
+# Keep the default kubeadm behavior so workload pods do not land on control-
+# plane nodes unless they explicitly tolerate the taint.
+- name: Enforce the NoSchedule taint on control-plane nodes
   hosts: controlplanes
   tasks:
+  - name: Log playbook header
+    ansible.builtin.debug:
+      msg: "Playbook header: enforce the control-plane NoSchedule taint"
+  
   
   - name: Ensure controlplane taint is present
     ansible.builtin.command: 

@@ -1,3 +1,5 @@
+# Install the Cilium CLI on the laptop so status and connectivity checks can be
+# run locally against the cluster.
 - name: Install Cilium CLI on localhost
   hosts: localhost
   connection: local
@@ -6,6 +8,10 @@
     cilium_cli_archive_path: "/tmp/{{ cilium_cli_archive_name }}"
     cilium_cli_binary_path: "{{ cilium_cli_install_dir }}/cilium"
   tasks:
+  - name: Log playbook header
+    ansible.builtin.debug:
+      msg: "Playbook header: install the Cilium CLI on the laptop"
+
   - name: Ensure local CLI install dir exists
     ansible.builtin.file:
       path: "{{ cilium_cli_install_dir }}"

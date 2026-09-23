@@ -1,7 +1,13 @@
+# Install kubeadm on cluster nodes so the control plane can be bootstrapped and
+# additional nodes can join later.
 - name: Install kubeadm
   hosts: k8s_cluster
     
   tasks:
+  - name: Log playbook header
+    ansible.builtin.debug:
+      msg: "Playbook header: install kubeadm"
+
   # Update apt package index 
   - name: Update apt package index
     ansible.builtin.apt:

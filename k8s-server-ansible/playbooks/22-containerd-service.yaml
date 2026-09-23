@@ -1,3 +1,5 @@
+# Install and enable the containerd systemd unit so the runtime starts
+# consistently on every node.
 - name: Start containerd via systemd
   hosts: k8s_cluster
   vars:
@@ -5,25 +7,29 @@
     full_systemd_path: "{{ systemd_folder }}/containerd.service"
     download_url: "https://raw.githubusercontent.com/containerd/containerd/v{{ containerd_version }}/containerd.service"
   tasks:
-    - name: Ensure systemd folder exists
-      ansible.builtin.file:
-          path: "{{ systemd_folder }}"
-          state: directory
-          mode: '0755'
-          owner: root
-          group: root
-    - name: Download containerd systemd service file
-      ansible.builtin.get_url:
-        url: "{{ download_url }}"
-        dest: "{{ full_systemd_path }}"
-        mode: '0644'
-        checksum: "{{ containerd_service_sha256 }}"
+  - name: Log playbook header
+    ansible.builtin.debug:
+      msg: "Playbook header: install and enable the containerd systemd unit"
 
-    - name: Enable and start containerd as service
-      ansible.builtin.systemd_service:
-        name: containerd
-        enabled: true
-        state: started
+  - name: Ensure systemd folder exists
+    ansible.builtin.file:
+        path: "{{ systemd_folder }}"
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+  - name: Download containerd systemd service file
+    ansible.builtin.get_url:
+      url: "{{ download_url }}"
+      dest: "{{ full_systemd_path }}"
+      mode: '0644'
+      checksum: "{{ containerd_service_sha256 }}"
+
+  - name: Enable and start containerd as service
+    ansible.builtin.systemd_service:
+      name: containerd
+      enabled: true
+      state: started
 
 
     

@@ -1,3 +1,5 @@
+# Install crictl so cluster nodes have a CRI-native troubleshooting tool for
+# containerd and kubelet issues.
 - name: Install crictl
   hosts: k8s_cluster
   vars:
@@ -9,6 +11,10 @@
     crictl_config_path: /etc/crictl.yaml
     crictl_runtime_endpoint: unix:///run/containerd/containerd.sock
   tasks:
+  - name: Log playbook header
+    ansible.builtin.debug:
+      msg: "Playbook header: install crictl"
+
   - name: Check installed crictl version
     ansible.builtin.command: crictl --version
     failed_when: false

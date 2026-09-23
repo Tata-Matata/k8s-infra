@@ -1,7 +1,13 @@
+# Install kubectl on cluster nodes for direct administrative checks that run on
+# the control plane during bootstrap and verification.
 - name: Install kubectl
   hosts: controlplanes
     
   tasks:
+  - name: Log playbook header
+    ansible.builtin.debug:
+      msg: "Playbook header: install kubectl on control-plane nodes"
+
   # Update apt package index 
   - name: Update apt package index
     ansible.builtin.apt:

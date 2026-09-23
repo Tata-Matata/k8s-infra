@@ -9,6 +9,10 @@
     nat_public_interface: "{{ ansible_facts['default_ipv4']['interface'] }}"
     nat_private_interface: "{{ (ansible_facts['interfaces'] | select('match', '^en') | reject('equalto', ansible_facts['default_ipv4']['interface']) | list | first) | default('') }}"
   tasks:
+  - name: Log playbook header
+    ansible.builtin.debug:
+      msg: "Playbook header: verify control-plane NAT and worker egress"
+
   - name: Check IPv4 forwarding remains enabled
     ansible.builtin.command: sysctl -n net.ipv4.ip_forward
     register: controlplane_ip_forward

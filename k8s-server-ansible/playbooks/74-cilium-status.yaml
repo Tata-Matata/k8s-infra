@@ -1,3 +1,5 @@
+# Run local Cilium CLI status commands against the fetched kubeconfig to check
+# overall health and Hubble readiness after installation.
 - name: Run Cilium status checks from localhost
   hosts: localhost
   connection: local
@@ -5,6 +7,10 @@
   vars:
     cilium_cli_binary_path: "{{ cilium_cli_install_dir }}/cilium"
   tasks:
+  - name: Log playbook header
+    ansible.builtin.debug:
+      msg: "Playbook header: run local Cilium status checks"
+
   - name: Ensure local kubeconfig exists
     ansible.builtin.stat:
       path: "{{ local_kubeconfig_path }}"

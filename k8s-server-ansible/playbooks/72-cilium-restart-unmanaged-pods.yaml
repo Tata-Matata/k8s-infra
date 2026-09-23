@@ -4,6 +4,10 @@
   hosts: controlplanes[0]
   gather_facts: false
   tasks:
+  - name: Log playbook header
+    ansible.builtin.debug:
+      msg: "Playbook header: restart workloads that predate the Cilium CNI"
+
   - name: Restart CoreDNS deployment in kube-system
     ansible.builtin.command:
       cmd: >-

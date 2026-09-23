@@ -155,10 +155,19 @@ So the worker boot path now guarantees all three pieces:
 
 ## Ansible
 
-Suggested order for the current playbooks:
+Run the full Ansible workflow through the orchestration playbook:
 
-1. verify private network egress / NAT setup
+`ansible-playbook -i k8s-server-ansible/inventory/hosts.yaml k8s-server-ansible/playbooks/cluster.yaml`
 
+That playbook applies the cluster in this order:
+
+1. verifies that private-worker egress and control-plane NAT are working before any downloads begin
+2. installs the container runtime stack and CRI troubleshooting tools
+3. applies Kubernetes host prerequisites, repository configuration, and node binaries
+4. bootstraps the first control plane and joins any additional control planes and workers declared in inventory
+5. enforces the default control-plane scheduling taint
+6. fetches the admin kubeconfig to the laptop and installs the local cluster administration tools
+7. installs Cilium, verifies the deployment, restarts pods that predate the CNI, and runs local CLI-based status and connectivity checks
 
 The control-plane NAT itself is now bootstrapped by Terraform cloud-init.
 Ansible is still useful as a verification layer before package installation.

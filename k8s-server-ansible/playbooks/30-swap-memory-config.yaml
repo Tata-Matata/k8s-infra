@@ -6,6 +6,10 @@
   hosts: k8s_cluster
     
   tasks:
+  - name: Log playbook header
+    ansible.builtin.debug:
+      msg: "Playbook header: disable swap on cluster nodes"
+
   # CHECK if enabled
 
   # collects Ansible facts from the target host
