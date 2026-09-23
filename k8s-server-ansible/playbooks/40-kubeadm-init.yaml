@@ -1,7 +1,5 @@
 - name: Initialize the first control plane
   hosts: controlplanes[0]
-  vars:
-    admin_conf_path: /etc/kubernetes/admin.conf
   gather_facts: true
   tasks:
   - name: Require private_ip in inventory for the first control plane
@@ -34,7 +32,7 @@
     ansible.builtin.command:
       cmd: kubeadm init --config /root/kubeadm-init.yaml
     args:
-      creates: "{{ admin_conf_path }}"
+      creates: "{{ kubeconfig_path }}"
 
   - name: Ensure root kubeconfig directory exists
     ansible.builtin.file:
@@ -46,7 +44,7 @@
 
   - name: Copy admin kubeconfig for root
     ansible.builtin.copy:
-      src: "{{ admin_conf_path }}"
+      src: "{{ kubeconfig_path }}"
       dest: /root/.kube/config
       remote_src: true
       owner: root

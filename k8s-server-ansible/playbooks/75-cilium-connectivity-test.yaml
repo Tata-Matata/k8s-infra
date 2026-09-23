@@ -1,39 +1,39 @@
 - name: Run Cilium connectivity test from localhost
-  hosts: controlplanes[0]
+  hosts: localhost
+  connection: local
+  gather_facts: false
   vars:
     cilium_cli_binary_path: "{{ cilium_cli_install_dir }}/cilium"
   tasks:
   - name: Ensure local kubeconfig exists
     ansible.builtin.stat:
-      path: "{{ cilium_kubeconfig_local_path }}"
+      path: "{{ local_kubeconfig_path }}"
     register: local_kubeconfig
-    delegate_to: localhost
 
   - name: Fail if local kubeconfig is missing
     ansible.builtin.fail:
-      msg: "Local kubeconfig not found at {{ cilium_kubeconfig_local_path }}. Run playbook 42-proxy-to-laptop.yaml first."
+      msg: "Local kubeconfig not found at {{ local_kubeconfig_path }}. Run playbook 60-kubeconfig-on-laptop.yaml first."
     when: not local_kubeconfig.stat.exists
 
   - name: Ensure Cilium CLI exists on localhost
     ansible.builtin.stat:
       path: "{{ cilium_cli_binary_path }}"
     register: local_cilium_cli
-    delegate_to: localhost
 
   - name: Fail if Cilium CLI is missing
     ansible.builtin.fail:
-      msg: "Cilium CLI not found at {{ cilium_cli_binary_path }}. Run playbook 47-install-cilium-cli-local.yaml first."
+      msg: "Cilium CLI not found at {{ cilium_cli_binary_path }}. Run playbook 73-install-cilium-cli-local.yaml first."
     when: not local_cilium_cli.stat.exists
 
   - name: Run Cilium connectivity test
     ansible.builtin.command:
       cmd: >-
         {{ cilium_cli_binary_path }} connectivity test
-        --kubeconfig {{ cilium_kubeconfig_local_path }}
-        --namespace cilium-test
+        --kubeconfig {{ local_kubeconfig_path }}
+        --test-namespace cilium-test
+        --timeout 15m
     register: cilium_connectivity_test
     changed_when: false
-    delegate_to: localhost
     environment:
       PATH: "{{ cilium_cli_install_dir }}:{{ lookup('env', 'PATH') }}"
 

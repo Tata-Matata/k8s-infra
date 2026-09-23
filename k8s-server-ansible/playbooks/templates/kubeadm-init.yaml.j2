@@ -12,7 +12,16 @@ apiVersion: kubeadm.k8s.io/v1beta4
 kind: ClusterConfiguration
 kubernetesVersion: "v{{ k8s_full_version }}"
 {% if control_plane_endpoint | default('') | length > 0 %}
+# kubeadm uses this as the stable cluster API endpoint for joining additional
+# control planes. It is separate from each node's local advertiseAddress and
+# separate from the public laptop-facing kubeconfig endpoint.
 controlPlaneEndpoint: "{{ control_plane_endpoint }}"
+{% endif %}
+apiServer:
+  certSANs:
+    - "{{ ansible_host }}"
+{% if control_plane_endpoint | default('') | length > 0 %}
+    - "{{ control_plane_endpoint.split(':')[0] }}"
 {% endif %}
 networking:
   podSubnet: "{{ pod_network_cidr }}"

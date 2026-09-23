@@ -1,12 +1,10 @@
 - name: Prepare worker join command
   hosts: controlplanes[0]
   gather_facts: false
-  vars:
-    admin_conf_path: /etc/kubernetes/admin.conf
   tasks:
   - name: Require initialized first control plane
     ansible.builtin.stat:
-      path: "{{ admin_conf_path }}"
+      path: "{{ kubeconfig_path }}"
     register: admin_conf_stat
 
   - name: Fail if first control plane is not initialized
@@ -14,11 +12,11 @@
       that:
         - admin_conf_stat.stat.exists
       fail_msg: >-
-        /etc/kubernetes/admin.conf is missing on the first control plane.
+        {{ kubeconfig_path }} is missing on the first control plane.
         Run 40-kubeadm-init.yaml before joining workers.
 
   - name: Create worker join command
-    ansible.builtin.command: kubeadm token create --print-join-command --kubeconfig /etc/kubernetes/admin.conf
+    ansible.builtin.command: kubeadm token create --print-join-command --kubeconfig {{ kubeconfig_path }}
     register: worker_join_command_raw
     changed_when: false
 

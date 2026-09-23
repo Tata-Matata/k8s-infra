@@ -1,4 +1,14 @@
-ansible_private_key_file: /home/tati/.ssh/k8s-infra/id_ed25519
+local_home_dir: "/home/tati/"
+local_user_name: "tati"
+local_user_group: "tati"
+ansible_private_key_file: "{{ local_home_dir }}/.ssh/k8s-infra/id_ed25519"
+local_kubeconfig_path: "{{ local_home_dir }}/kubernetes/k8s-infra/admin.conf"
+
+# Kubernetes version
+k8s_version: "1.36"
+k8s_patch_version: "4"
+k8s_full_version: "{{ k8s_version }}.{{ k8s_patch_version }}"
+kubectl_checksum: "sha256:8b8f088da2dab964f853b38464033b1be15ede2839eca751482357c45abdd05a"
 
 # Helm
 helm_version: "3.22.0"
@@ -6,4 +16,16 @@ helm_arch: linux-amd64
 helm_download_url: "https://get.helm.sh/helm-v{{ helm_version }}-{{ helm_arch }}.tar.gz"
 helm_checksum: "sha256:1e4ab49e429626cf6c6958d914248b78c9730803c2751b87627e171dc800e7bb"
 helm_tmp_dir: /tmp/helm
-helm_install_dir: "/home/tati/.local/bin"
+helm_install_dir: "{{ local_home_dir }}/.local/bin"
+
+# Local Cilium CLI
+cilium_cli_install_dir: "{{ local_home_dir }}/.local/bin"
+cilium_cli_version: "0.20.0"
+cilium_cli_archive_name: "cilium-linux-amd64.tar.gz"
+cilium_cli_download_url: "https://github.com/cilium/cilium-cli/releases/download/v{{ cilium_cli_version }}/{{ cilium_cli_archive_name }}"
+cilium_cli_checksum: "sha256:94adc5c3be44d8240df91cec520536686f8a1eb29e5bc70c4c1c80137f00d764"
+
+# Local kubectl
+kubectl_local_version: "{{ k8s_full_version }}"
+kubectl_local_download_url: "https://dl.k8s.io/v{{ kubectl_local_version }}/bin/linux/amd64/kubectl"
+kubectl_local_install_dir: "{{ local_home_dir }}/.local/bin"

@@ -1,33 +1,28 @@
+# Restart CoreDNS after Cilium installation so a workload that started before
+# the Cilium CNI was active gets recreated with the expected networking.
 - name: Restart pre-Cilium unmanaged pods
   hosts: controlplanes[0]
-  vars:
-    kubectl_local_path: "/home/tati/.local/bin/kubectl"
+  gather_facts: false
   tasks:
   - name: Restart CoreDNS deployment in kube-system
     ansible.builtin.command:
       cmd: >-
-        {{ kubectl_local_path }}
-        --kubeconfig {{ cilium_kubeconfig_local_path }}
+        kubectl
+        --kubeconfig {{ kubeconfig_path }}
         -n kube-system
         rollout restart deployment coredns
     register: coredns_restart
     changed_when: true
-    delegate_to: localhost
-    environment:
-      PATH: "{{ cilium_cli_install_dir }}:{{ lookup('env', 'PATH') }}"
 
   - name: Wait for CoreDNS rollout
     ansible.builtin.command:
       cmd: >-
-        {{ kubectl_local_path }}
-        --kubeconfig {{ cilium_kubeconfig_local_path }}
+        kubectl
+        --kubeconfig {{ kubeconfig_path }}
         -n kube-system
         rollout status deployment coredns --timeout=5m
     register: coredns_rollout
     changed_when: false
-    delegate_to: localhost
-    environment:
-      PATH: "{{ cilium_cli_install_dir }}:{{ lookup('env', 'PATH') }}"
 
   - name: Show CoreDNS rollout status
     ansible.builtin.debug:

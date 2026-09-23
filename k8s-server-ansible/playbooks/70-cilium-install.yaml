@@ -1,18 +1,9 @@
 - name: Install Cilium with VXLAN via Helm from localhost
   hosts: controlplanes[0]
-  gather_facts: true
+  gather_facts: false
   vars:
     helm_binary_path: "{{ helm_install_dir }}/helm"
     cilium_values_file: /tmp/cilium-values.yaml
-    cilium_controlplane_private_interface: >-
-      {{
-        ansible_interfaces
-        | select('match', '^en')
-        | reject('equalto', ansible_default_ipv4.interface)
-        | list
-        | first
-        | default('')
-      }}
   tasks:
   - name: Ensure local kubeconfig exists
     ansible.builtin.stat:
@@ -36,86 +27,18 @@
       msg: "Helm not found at {{ helm_binary_path }}. Run playbook 60-install-helm-local.yaml first."
     when: not local_helm.stat.exists
 
-  - name: Fail if no private API endpoint can be derived for Cilium
-    ansible.builtin.fail:
-      msg: >-
-        Could not derive a private Kubernetes API endpoint for Cilium.
-        Set cilium_k8s_service_host explicitly or configure control_plane_endpoint.
-    when:
-      - cilium_k8s_service_host | length == 0
-      - control_plane_endpoint | length == 0
-      - cilium_controlplane_private_interface | length == 0
-
-  - name: Detect first control plane private IP for Cilium
-    ansible.builtin.shell: "ip -4 -o addr show dev {{ cilium_controlplane_private_interface }} | awk '{print $4}' | cut -d/ -f1"
-    register: cilium_controlplane_private_ip
-    changed_when: false
-    when:
-      - cilium_k8s_service_host | length == 0
-      - control_plane_endpoint | length == 0
-
-  - name: Derive Cilium kube-apiserver host and port
-    ansible.builtin.set_fact:
-      cilium_effective_k8s_service_host: >-
-        {{
-          cilium_k8s_service_host
-          if cilium_k8s_service_host | length > 0
-          else (
-            control_plane_endpoint.split(':')[0]
-            if control_plane_endpoint | length > 0
-            else (cilium_controlplane_private_ip.stdout | trim)
-          )
-        }}
-      cilium_effective_k8s_service_port: >-
-        {{
-          cilium_k8s_service_port
-          if cilium_k8s_service_port | length > 0
-          else (
-            (control_plane_endpoint.split(':') | last)
-            if control_plane_endpoint | length > 0
-            else '6443'
-          )
-        }}
-
-  - name: Fail if derived Cilium kube-apiserver host is empty
+  - name: Require private_ip for Cilium kube-apiserver access
     ansible.builtin.assert:
       that:
-        - cilium_effective_k8s_service_host | length > 0
-      fail_msg: "Cilium kube-apiserver host is empty after endpoint derivation."
+        - private_ip is defined
+        - private_ip | length > 0
+      fail_msg: private_ip must be set on the first control plane for Cilium installation.
 
   - name: Write Cilium Helm values file on localhost
-    ansible.builtin.copy:
+    ansible.builtin.template:
+      src: templates/cilium-values.yaml.j2
       dest: "{{ cilium_values_file }}"
       mode: '0600'
-      content: |
-        routingMode: {{ cilium_routing_mode }}
-        tunnelProtocol: {{ cilium_tunnel_protocol }}
-        tunnelPort: {{ cilium_tunnel_port }}
-        kubeProxyReplacement: true
-        k8sServiceHost: {{ cilium_effective_k8s_service_host }}
-        k8sServicePort: {{ cilium_effective_k8s_service_port }}
-        ipam:
-          mode: cluster-pool
-          operator:
-            clusterPoolIPv4PodCIDRList:
-              - {{ pod_network_cidr }}
-        ipv4:
-          enabled: true
-        ipv6:
-          enabled: false
-        cni:
-          install: true
-          exclusive: true
-        bpf:
-          masquerade: true
-        hubble:
-          enabled: {{ cilium_hubble_enabled | lower }}
-          relay:
-            enabled: {{ cilium_hubble_relay_enabled | lower }}
-          ui:
-            enabled: {{ cilium_hubble_ui_enabled | lower }}
-        operator:
-          replicas: {{ [groups['controlplanes'] | length, 2] | min }}
     delegate_to: localhost
 
   - name: Install or upgrade Cilium from OCI chart

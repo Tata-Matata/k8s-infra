@@ -1,0 +1,36 @@
+# Use an overlay so the underlay only needs node-to-node reachability.
+routingMode: {{ cilium_routing_mode }}
+# VXLAN encapsulates cross-node pod traffic in tunnel mode.
+tunnelProtocol: {{ cilium_tunnel_protocol }}
+tunnelPort: {{ cilium_tunnel_port }}
+# Replace kube-proxy service load-balancing with Cilium's eBPF datapath.
+kubeProxyReplacement: true
+# Cilium agents still need a stable kube-apiserver endpoint for watches.
+k8sServiceHost: {{ private_ip }}
+k8sServicePort: 6443
+ipam:
+  # Let Cilium allocate pod IPs from the cluster pod CIDR pool.
+  mode: cluster-pool
+  operator:
+    clusterPoolIPv4PodCIDRList:
+      - {{ pod_network_cidr }}
+ipv4:
+  enabled: true
+ipv6:
+  enabled: false
+cni:
+  # Install Cilium as the cluster's only active CNI plugin.
+  install: true
+  exclusive: true
+bpf:
+  # Use eBPF-based SNAT for traffic leaving the pod network.
+  masquerade: true
+hubble:
+  # Enable flow observability and policy visibility.
+  enabled: {{ cilium_hubble_enabled | lower }}
+  relay:
+    enabled: {{ cilium_hubble_relay_enabled | lower }}
+  ui:
+    enabled: {{ cilium_hubble_ui_enabled | lower }}
+operator:
+  replicas: {{ [groups['controlplanes'] | length, 2] | min }}

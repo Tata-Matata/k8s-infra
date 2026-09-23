@@ -1,21 +1,17 @@
-- name: Verify Cilium installation from localhost
+- name: Verify Cilium installation from control plane
   hosts: controlplanes[0]
-  vars:
-    kubectl_local_path: "/home/tati/.local/bin/kubectl"
+  gather_facts: false
   tasks:
   - name: Check Cilium pods in kube-system
     ansible.builtin.command:
       cmd: >-
-        {{ kubectl_local_path }}
-        --kubeconfig {{ cilium_kubeconfig_local_path }}
+        kubectl
+        --kubeconfig {{ kubeconfig_path }}
         -n {{ cilium_namespace }}
         get pods
         -l k8s-app=cilium
     register: cilium_pods
     changed_when: false
-    delegate_to: localhost
-    environment:
-      PATH: "{{ cilium_cli_install_dir }}:{{ lookup('env', 'PATH') }}"
 
   - name: Show Cilium pods
     ansible.builtin.debug:
@@ -24,15 +20,12 @@
   - name: Check Cilium operator
     ansible.builtin.command:
       cmd: >-
-        {{ kubectl_local_path }}
-        --kubeconfig {{ cilium_kubeconfig_local_path }}
+        kubectl
+        --kubeconfig {{ kubeconfig_path }}
         -n {{ cilium_namespace }}
         get deployment cilium-operator
     register: cilium_operator
     changed_when: false
-    delegate_to: localhost
-    environment:
-      PATH: "{{ cilium_cli_install_dir }}:{{ lookup('env', 'PATH') }}"
 
   - name: Show Cilium operator
     ansible.builtin.debug:
@@ -41,16 +34,13 @@
   - name: Verify Cilium config is VXLAN
     ansible.builtin.command:
       cmd: >-
-        {{ kubectl_local_path }}
-        --kubeconfig {{ cilium_kubeconfig_local_path }}
+        kubectl
+        --kubeconfig {{ kubeconfig_path }}
         -n {{ cilium_namespace }}
         get configmap cilium-config
         -o jsonpath={.data.tunnel-protocol}
     register: cilium_tunnel_protocol_check
     changed_when: false
-    delegate_to: localhost
-    environment:
-      PATH: "{{ cilium_cli_install_dir }}:{{ lookup('env', 'PATH') }}"
 
   - name: Verify tunnel protocol value
     ansible.builtin.assert:
@@ -61,16 +51,13 @@
   - name: Verify Hubble is enabled in Cilium config
     ansible.builtin.command:
       cmd: >-
-        {{ kubectl_local_path }}
-        --kubeconfig {{ cilium_kubeconfig_local_path }}
+        kubectl
+        --kubeconfig {{ kubeconfig_path }}
         -n {{ cilium_namespace }}
         get configmap cilium-config
         -o jsonpath={.data.enable-hubble}
     register: cilium_hubble_enabled_check
     changed_when: false
-    delegate_to: localhost
-    environment:
-      PATH: "{{ cilium_cli_install_dir }}:{{ lookup('env', 'PATH') }}"
 
   - name: Verify Hubble config value
     ansible.builtin.assert:
@@ -81,15 +68,12 @@
   - name: Check Hubble Relay deployment
     ansible.builtin.command:
       cmd: >-
-        {{ kubectl_local_path }}
-        --kubeconfig {{ cilium_kubeconfig_local_path }}
+        kubectl
+        --kubeconfig {{ kubeconfig_path }}
         -n {{ cilium_namespace }}
         get deployment hubble-relay
     register: hubble_relay_deployment
     changed_when: false
-    delegate_to: localhost
-    environment:
-      PATH: "{{ cilium_cli_install_dir }}:{{ lookup('env', 'PATH') }}"
 
   - name: Show Hubble Relay deployment
     ansible.builtin.debug:
@@ -98,15 +82,12 @@
   - name: Check Hubble UI deployment
     ansible.builtin.command:
       cmd: >-
-        {{ kubectl_local_path }}
-        --kubeconfig {{ cilium_kubeconfig_local_path }}
+        kubectl
+        --kubeconfig {{ kubeconfig_path }}
         -n {{ cilium_namespace }}
         get deployment hubble-ui
     register: hubble_ui_deployment
     changed_when: false
-    delegate_to: localhost
-    environment:
-      PATH: "{{ cilium_cli_install_dir }}:{{ lookup('env', 'PATH') }}"
 
   - name: Show Hubble UI deployment
     ansible.builtin.debug:
@@ -115,15 +96,12 @@
   - name: Check Hubble Relay service
     ansible.builtin.command:
       cmd: >-
-        {{ kubectl_local_path }}
-        --kubeconfig {{ cilium_kubeconfig_local_path }}
+        kubectl
+        --kubeconfig {{ kubeconfig_path }}
         -n {{ cilium_namespace }}
         get service hubble-relay
     register: hubble_relay_service
     changed_when: false
-    delegate_to: localhost
-    environment:
-      PATH: "{{ cilium_cli_install_dir }}:{{ lookup('env', 'PATH') }}"
 
   - name: Show Hubble Relay service
     ansible.builtin.debug:
@@ -132,15 +110,12 @@
   - name: Check kube-proxy replacement status from cilium agent
     ansible.builtin.command:
       cmd: >-
-        {{ kubectl_local_path }}
-        --kubeconfig {{ cilium_kubeconfig_local_path }}
+        kubectl
+        --kubeconfig {{ kubeconfig_path }}
         -n {{ cilium_namespace }}
         exec ds/cilium -- cilium-dbg status --verbose
     register: cilium_dbg_status
     changed_when: false
-    delegate_to: localhost
-    environment:
-      PATH: "{{ cilium_cli_install_dir }}:{{ lookup('env', 'PATH') }}"
 
   - name: Verify kube-proxy replacement is enabled
     ansible.builtin.assert:
@@ -152,16 +127,13 @@
   - name: Check kube-proxy daemonset is absent
     ansible.builtin.command:
       cmd: >-
-        {{ kubectl_local_path }}
-        --kubeconfig {{ cilium_kubeconfig_local_path }}
+        kubectl
+        --kubeconfig {{ kubeconfig_path }}
         -n kube-system
         get daemonset kube-proxy
     register: kube_proxy_daemonset
     changed_when: false
     failed_when: false
-    delegate_to: localhost
-    environment:
-      PATH: "{{ cilium_cli_install_dir }}:{{ lookup('env', 'PATH') }}"
 
   - name: Verify kube-proxy daemonset is absent
     ansible.builtin.assert:

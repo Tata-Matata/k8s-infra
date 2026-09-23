@@ -1,0 +1,40 @@
+- name: Install kubectl on localhost
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    kubectl_binary_path: "{{ kubectl_local_install_dir }}/kubectl"
+    adminconf_local_machine_path: "{{ local_kubeconfig_path }}"
+  tasks:
+  - name: Ensure local kubectl bin directory exists
+    ansible.builtin.file:
+      path: "{{ kubectl_local_install_dir }}"
+      state: directory
+      mode: '0755'
+
+  - name: Persist local kubectl bin directory in PATH via .bashrc
+    ansible.builtin.lineinfile:
+      path: "{{ local_home_dir }}/.bashrc"
+      line: 'export PATH="{{ kubectl_local_install_dir }}:$PATH"'
+      create: true
+
+  - name: Download kubectl to local machine
+    ansible.builtin.get_url:
+      url: "{{ kubectl_local_download_url }}"
+      dest: "{{ kubectl_binary_path }}"
+      mode: '0755'
+      checksum: "{{ kubectl_checksum }}"
+      force: true
+
+  - name: Ensure local kubeconfig exists
+    ansible.builtin.stat:
+      path: "{{ adminconf_local_machine_path }}"
+    register: local_kubeconfig
+
+  - name: Verify kubectl can manage cluster from local machine
+    ansible.builtin.command:
+      cmd: "{{ kubectl_binary_path }} --kubeconfig {{ adminconf_local_machine_path }} get nodes"
+    changed_when: false
+    environment:
+      PATH: "{{ kubectl_local_install_dir }}:{{ lookup('env', 'PATH') }}"
+    when: local_kubeconfig.stat.exists
