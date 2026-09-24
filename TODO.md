@@ -21,3 +21,4 @@
 7. CIS-CAT Lite or OpenSCAP in CI pipeline - at which stage? fail on non-waived findings, implement fixes in Ansible? publish report as artifact. on PR, before merge? CHECK LICENSE before using in the pipeline
 
 8. overall script to run all Terraform configs  
+9. tighten private-network east-west access between Kubernetes nodes: evaluate host-level Linux firewalling on private interfaces (for example `iptables` or nftables) so only the required Kubernetes, kubelet, CNI, and observability ports remain open instead of today's broad private-network reachability
