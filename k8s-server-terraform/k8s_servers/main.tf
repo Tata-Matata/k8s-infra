@@ -24,6 +24,7 @@ module "controlplane" {
 
   user_data = templatefile("../modules/hetzner_server/controlplane-user-data.yaml.tftpl", {
     private_network_cidr = data.terraform_remote_state.core_network.outputs.parent_net_cidr
+    module_path          = abspath("../modules/hetzner_server")
   })
 
   // e.g., for 10.50.1.5 use offset 5

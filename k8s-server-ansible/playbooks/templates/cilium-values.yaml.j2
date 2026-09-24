@@ -3,6 +3,12 @@ routingMode: {{ cilium_routing_mode }}
 # VXLAN encapsulates cross-node pod traffic in tunnel mode.
 tunnelProtocol: {{ cilium_tunnel_protocol }}
 tunnelPort: {{ cilium_tunnel_port }}
+
+encryption:
+  # Encrypt Cilium-managed pod traffic between nodes with WireGuard.
+  enabled: true
+  type: wireguard
+
 # Replace kube-proxy service load-balancing with Cilium's eBPF datapath.
 kubeProxyReplacement: true
 # Cilium agents still need a stable kube-apiserver endpoint for watches.

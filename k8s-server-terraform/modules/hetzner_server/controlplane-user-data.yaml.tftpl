@@ -2,51 +2,18 @@
 # This control-plane-only cloud-init fragment prepares the first control plane
 # to act as the Linux NAT gateway for private-only workers. Hetzner already
 # brings up both NICs, so this template only enables IPv4 forwarding, installs
-# persistent iptables support, and adds MASQUERADE/FORWARD rules between the
-# private NIC and the default public NIC.
+# persistent iptables support, and installs a script that enables IPv4
+# forwarding and adds MASQUERADE/FORWARD rules between the private NIC and the
+# default public NIC.
 packages:
   - iptables-persistent
   - netfilter-persistent
 
 write_files:
-  - path: /etc/sysctl.d/99-k8s-private-egress.conf
-    permissions: "0644"
-    content: |
-      net.ipv4.ip_forward=1
   - path: /usr/local/sbin/configure-private-egress-nat.sh
     permissions: "0755"
     content: |
-      #!/usr/bin/env bash
-      set -euo pipefail
-
-      public_interface="$(ip route show default | awk '/default/ { print $5; exit }')"
-      private_interface="$(ip -o link show | awk -F': ' -v public_interface="$${public_interface}" '
-        /^[0-9]+: e/ {
-          split($2, iface, "@");
-          if (iface[1] != public_interface) {
-            print iface[1];
-            exit
-          }
-        }
-      ')"
-
-      if [[ -z "$${public_interface}" || -z "$${private_interface}" ]]; then
-        echo "Could not determine public/private interfaces for NAT" >&2
-        exit 1
-      fi
-
-      sysctl --system >/dev/null
-
-      iptables -t nat -C POSTROUTING -s ${private_network_cidr} -o "$${public_interface}" -j MASQUERADE || \
-        iptables -t nat -A POSTROUTING -s ${private_network_cidr} -o "$${public_interface}" -j MASQUERADE
-
-      iptables -C FORWARD -i "$${private_interface}" -o "$${public_interface}" -j ACCEPT || \
-        iptables -A FORWARD -i "$${private_interface}" -o "$${public_interface}" -j ACCEPT
-
-      iptables -C FORWARD -i "$${public_interface}" -o "$${private_interface}" -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT || \
-        iptables -A FORWARD -i "$${public_interface}" -o "$${private_interface}" -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-
-      netfilter-persistent save
+      ${indent(6, replace(file("${module_path}/configure-private-egress-nat.sh"), "__PRIVATE_NETWORK_CIDR__", private_network_cidr))}
 
 runcmd:
   - /usr/local/sbin/configure-private-egress-nat.sh

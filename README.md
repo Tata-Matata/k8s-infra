@@ -2,6 +2,7 @@
 
 This repository is split into two parts:
 
+
 ## Terraform
 
 Terraform is used to provision the Hetzner infrastructure for the Kubernetes cluster.
@@ -111,6 +112,17 @@ The end-to-end packet path is therefore:
 2. Hetzner private-network routing forwards `0.0.0.0/0` traffic to `10.50.1.101`
 3. `controlplane-1` NATs it out through its public interface
 
+### Private-network filtering scope
+
+Hetzner Cloud Firewalls in this setup protect public interfaces only. In this
+repo, the cluster's private east-west traffic is therefore not filtered by the
+Hetzner firewall resources.
+
+That means private-network reachability between Kubernetes nodes is currently
+broad by default. This is acceptable for the current bootstrap-focused design,
+but it is also an area that could be tightened later with host-level Linux
+firewall rules if you want stricter segmentation on private interfaces.
+
 ### Cloud-init responsibilities
 
 The control plane and workers now use separate `user_data` templates.
@@ -153,7 +165,7 @@ So the worker boot path now guarantees all three pieces:
 3. explicit upstream DNS servers
 
 
-## Ansible
+## Ansible to install and configure K8s cluster
 
 Run the full Ansible workflow through the orchestration playbook:
 
@@ -174,3 +186,49 @@ Ansible is still useful as a verification layer before package installation.
 Without working egress, private-only workers will fail on tasks that download
 packages or artifacts from public URLs.
 
+### Cilium
+
+Cilium is the cluster CNI and replaces kube-proxy with an eBPF datapath.
+
+In this repo, Cilium is currently configured to:
+
+1. run in kube-proxy-free mode
+2. use tunnel routing with VXLAN for cross-node pod traffic
+3. use WireGuard encryption for Cilium-managed pod traffic between nodes
+4. enable Hubble, Hubble Relay, and Hubble UI for network observability
+
+Cilium depends on the fact that Kubernetes nodes can already reach each other
+over the Hetzner private network. That private-node reachability is what allows
+overlay traffic, WireGuard-encrypted pod traffic, kubelet traffic, and other
+node-to-node control paths to work without exposing those paths on public
+interfaces.
+
+Because the private network is currently broad and not narrowed by host-level
+Linux filtering, enabling features such as Cilium WireGuard does not currently
+require opening additional ports in the existing Hetzner public-interface
+firewall rules when that traffic stays on the private network.
+
+## Overall network architecture
+
+The cluster runs on Hetzner Cloud servers attached to a shared private network.
+
+This design currently has three major properties:
+
+1. Control-plane nodes have both a public interface and a private interface.
+2. Worker nodes are private-only and reach the internet through `controlplane-1`, which acts as the NAT gateway.
+3. Kubernetes nodes have broad L3 reachability to each other over the Hetzner private network.
+
+That broad private-network reachability is intentional for now because it keeps
+the initial bootstrap, kubeadm control-plane traffic, kubelet traffic, and CNI
+traffic simple. It also means the current design is relatively open inside the
+private network.
+
+At the moment, this repo does not add host-level Linux filtering on the private
+interfaces to restrict east-west traffic to a minimal set of ports. In other
+words, there is currently no explicit `iptables` or equivalent host firewall
+policy here that narrows private-interface access down to only the Kubernetes
+and CNI ports that are strictly required.
+
+This can be tightened later. A future hardening pass could introduce host-level
+filtering for private interfaces so only the required control-plane, kubelet,
+CNI, and observability ports remain reachable between nodes.
