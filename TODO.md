@@ -22,3 +22,12 @@
 
 8. overall script to run all Terraform configs  
 9. tighten private-network east-west access between Kubernetes nodes: evaluate host-level Linux firewalling on private interfaces (for example `iptables` or nftables) so only the required Kubernetes, kubelet, CNI, and observability ports remain open instead of today's broad private-network reachability
+10. add autocomplete configuration for kubectl on controlplane
+    # kubectl alias
+alias k=kubectl
+
+# kubectl autocomplete
+source <(kubectl completion bash)
+
+# autocomplete for alias k
+complete -o default -F __start_kubectl k
